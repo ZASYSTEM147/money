@@ -243,7 +243,17 @@ categories=Array.isArray(categories)?categories.filter(c=>typeof c==='string'&&c
 LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
 [...records,...schedules].forEach(x=>{if(x.category&&x.category!=='Transfer'&&!categories.includes(x.category))categories.push(x.category)});
 let title=(()=>{try{return localStorage.getItem(K.title)||'ZZ & AZ Tracker'}catch(e){return'ZZ & AZ Tracker'}})();
+function syncDebtRecords(){
+  /* Money received from people who owe you counts as Income, so Balance goes up. Rebuilt from the debt payments each time. */
+  const old=new Map(records.filter(r=>r.debtPayId).map(r=>[r.debtPayId,r]));
+  records=records.filter(r=>!r.debtPayId);
+  debts.forEach(d=>{if(!d||d.dir!=='owed'||!Array.isArray(d.payments))return;
+    d.payments.forEach(p=>{const a=Number(p.amount)||0;if(!(a>0))return;const o=old.get(p.id);
+      records.push({id:'debtpay-'+p.id,date:p.date,owner:d.owner,type:'Income',category:'Debt',paymentMethod:(o&&o.paymentMethod)||'Bank',desc:(d.person||'Someone')+' paid back'+(d.item?' · '+d.item:''),amount:a,note:p.note||'',debtId:d.id,debtPayId:p.id})})});
+  if(!categories.includes('Debt'))categories.push('Debt');
+}
 function persist(){
+  syncDebtRecords();
   if(typeof cloudDirty==='function')cloudDirty();
   writeRaw(K.notes,JSON.stringify(notes));writeRaw(K.rec,JSON.stringify(records));writeRaw(K.sch,JSON.stringify(schedules));writeRaw(K.debt,JSON.stringify(debts));writeRaw(K.cat,JSON.stringify(categories));
   writeRaw(K.dates,JSON.stringify(Object.fromEntries(schedules.map(x=>[x.id,{startMonth:x.startMonth,endMonth:x.endMonth,startLabel:x.startLabel,endLabel:x.endLabel}]))));
@@ -552,7 +562,7 @@ function saveTx(){
   S.month=jump;closeSheet();commit();toast(d.id?'Changes saved':'Saved to '+ml(jump),true);
 }
 function txOpen(id){
-  const r=rec(id);if(!r)return;const k=kind(r.type),sc=r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
+  const r=rec(id);if(!r)return;if(r.debtId&&debts.some(x=>x.id===r.debtId)){debtDetail(r.debtId);return}const k=kind(r.type),sc=r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
   openSheet(`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><span class="badge ${k}">${ic(k==='income'?'up':k==='expense'?'down':'swap',19)}</span><div style="flex:1;min-width:0"><h3 style="overflow:hidden;text-overflow:ellipsis">${esc(r.desc)}</h3><div class="muted">${esc(r.type)}</div></div></div>
   <div class="big" style="font-size:32px;font-weight:800;letter-spacing:-1px;margin:6px 0 8px">${isPlus(r.type)?'+':'−'}${money(r.amount)}</div>
   <div class="kv"><span>Date</span><b>${esc(r.date)}</b></div><div class="kv"><span>Account</span><b>${esc(r.owner)}</b></div><div class="kv"><span>Category</span><b>${esc(r.category)}</b></div>${r.toPerson?`<div class="kv"><span>Sent to</span><b>${esc(r.toPerson)}</b></div>`:''}${r.scheduleId&&(r.type==='Transfer Out'||!String(r.type).startsWith('Transfer'))?`<div class="kv"><span>Status</span><b class="${r.paid?'pos':'neg'}">${r.type==='Transfer Out'?(r.paid?'Transferred':'Not transferred yet'):r.paid?(r.type==='Income'?'Received':'Paid'):(r.type==='Income'?'Expected':'Not paid yet')}</b></div><div class="field"><label class="lab">Paid by</label><div class="seg full" data-seg="rpm">${['Bank','Cash','Transfer'].map(m=>`<button type="button" data-a="seg" data-n="rpm" data-id="${esc(r.id)}" data-v="${m}" class="${(r.paymentMethod||'Bank')===m?'on':''}">${m}</button>`).join('')}</div></div>`:(r.paymentMethod?`<div class="kv"><span>Paid by</span><b>${esc(r.paymentMethod)}</b></div>`:'')}${sc?`<div class="kv"><span>Repeats</span><b>${sc.open?'from '+ml(sc.startMonth)+', no end date':ml(sc.startMonth)+' to '+ml(sc.endMonth)}</b></div>`:''}${r.note&&r.note!=='Scheduled monthly payment'&&r.note!=='Auto-created matching transfer'?`<div class="kv" style="display:block"><span>Note</span><div style="white-space:pre-wrap;margin-top:6px;font-weight:600">${esc(r.note)}</div></div>`:''}
@@ -896,6 +906,7 @@ function cloudBlock(){
 }
 cloudInit();
 
+persist();
 render();
 </script>
 </body>
