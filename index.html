@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f6fa">
+<title>ZZ &amp; AZ Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3f6fa;--card:#ffffff;--ink:#11263d;--muted:#6a7e93;--line:#e0e8f1;--soft:#eaf1f9;
+  --blue:#2c74c6;--blue-ink:#ffffff;--in:#17835d;--in-bg:#e2f4ec;--out:#c9503b;--out-bg:#fceae6;--xf:#6459bd;--xf-bg:#eceafa;
+  --shadow:0 1px 2px rgba(17,38,61,.06),0 6px 20px rgba(17,38,61,.06);--scrim:rgba(10,24,40,.45);
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0d1927;--card:#14253a;--ink:#e8f0f9;--muted:#8da2b8;--soft:#1b2f47;
+  --line:#243a54;--blue:#5aa0ec;--blue-ink:#07192c;--in:#4cc796;--in-bg:#12362b;--out:#f08a76;--out-bg:#3b211d;--xf:#a79df0;--xf-bg:#26224a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);--scrim:rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{
+  --paper:#0d1927;--card:#14253a;--ink:#e8f0f9;--muted:#8da2b8;--soft:#1b2f47;
+  --line:#243a54;--blue:#5aa0ec;--blue-ink:#07192c;--in:#4cc796;--in-bg:#12362b;--out:#f08a76;--out-bg:#3b211d;--xf:#a79df0;--xf-bg:#26224a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);--scrim:rgba(0,0,0,.6)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+body{margin:0;overflow-x:clip;background:var(--paper);color:var(--ink);font:500 15px/1.4 Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--paper);z-index:30}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.app{max-width:560px;margin:0 auto;padding-bottom:120px}
+.ic{display:block;flex:none}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);padding:10px 16px 10px;border-bottom:1px solid var(--line)}
+.top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.brand{font-weight:800;font-size:19px;letter-spacing:-.3px;text-align:left;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--ink);background:var(--card);border:1px solid var(--line)}
+.ctrl{display:flex;gap:8px;align-items:center}
+.stepper{flex:1;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;height:40px;min-width:0}
+.stepper button{width:40px;height:100%;display:grid;place-items:center;color:var(--muted)}
+.stepper .mlabel{flex:1;text-align:center;font-weight:800;font-size:15px;height:100%;min-width:0}
+.seg{display:inline-flex;background:var(--soft);border-radius:12px;padding:3px;gap:2px}
+.seg button{padding:0 12px;height:34px;border-radius:9px;font-weight:700;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(17,38,61,.15)}
+.seg.full{display:flex}.seg.full button{flex:1}
+
+/* layout */
+main{padding:14px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+.stack{display:grid;gap:14px}
+.h{display:flex;justify-content:space-between;align-items:baseline;margin:2px 2px 8px}
+.h h2{margin:0;font-size:16px;font-weight:800;letter-spacing:-.2px}
+.link{color:var(--blue);font-weight:700;font-size:13px;padding:6px 2px}
+.muted{color:var(--muted);font-size:13px}
+.pos{color:var(--in)}.neg{color:var(--out)}
+
+/* hero */
+.hero .lbl{font-size:13px;color:var(--muted);font-weight:700}
+.hero .big{font-size:38px;font-weight:800;letter-spacing:-1.2px;line-height:1.1;margin:2px 0 12px}
+.flow{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--soft);gap:2px}
+.flow i{display:block;min-width:0;transition:flex .35s ease}
+.flow .in{background:var(--in)}.flow .out{background:var(--out)}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.trio span{display:block;font-size:12px;color:var(--muted);font-weight:700}
+.trio b{font-size:15px;font-weight:800}
+
+/* chart */
+.chart{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;height:150px;margin:0 -6px}
+.col{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;border-radius:10px;padding:6px 0 4px;gap:5px}
+.col.sel{background:var(--soft)}
+.bars{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px}
+.b{display:block;width:8px;border-radius:3px 3px 0 0;min-height:3px;transition:height .3s ease}
+.b.in{background:var(--in)}.b.out{background:var(--out);opacity:.85}
+.mlbl{font-size:10px;font-weight:700;color:var(--muted)}
+.col.sel .mlbl{color:var(--ink)}
+.readout{display:flex;justify-content:space-between;gap:8px;margin-top:10px;font-size:13px;font-weight:700}
+
+/* lists */
+.list{display:grid}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);text-align:left;width:100%}
+.row:first-child{border-top:0}
+.badge{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
+.badge.income{background:var(--in-bg);color:var(--in)}.badge.expense{background:var(--out-bg);color:var(--out)}.badge.transfer{background:var(--xf-bg);color:var(--xf)}
+.rmain{flex:1;min-width:0}
+.rtitle,.rsub{display:block}
+.rtitle{font-weight:700;overflow-wrap:anywhere}
+.rsub{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.ramt{font-weight:800;white-space:nowrap}
+.day{font-size:12px;font-weight:800;color:var(--muted);margin:16px 2px 6px}
+.check{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;flex:none;color:transparent;transition:all .15s}
+.check.on{background:var(--in);border-color:var(--in);color:#fff}
+.tap{min-width:44px;min-height:44px;display:grid;place-items:center;margin:-7px -7px -7px -7px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 4px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:0 14px;height:36px;border-radius:18px;border:1px solid var(--line);background:var(--card);font-weight:700;font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.search{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 12px;height:44px;margin-bottom:10px;color:var(--muted)}
+.search input{flex:1;border:0;background:none;outline:none;height:100%;min-width:0;color:var(--ink)}
+.bar{height:8px;border-radius:5px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:5px;transition:width .35s ease}
+.catrow{width:100%;text-align:left;padding:9px 0}
+.catrow .top2{display:flex;justify-content:space-between;font-weight:700;font-size:14px;margin-bottom:6px}
+.empty{text-align:center;color:var(--muted);padding:26px 10px}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.acc{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acc button{text-align:left;padding:14px}
+.acc .nm{font-weight:800;font-size:13px;color:var(--muted)}
+.acc .v{font-size:20px;font-weight:800;letter-spacing:-.5px;margin:2px 0 6px}
+.acc small{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 18px;border-radius:13px;font-weight:800;background:var(--blue);color:var(--blue-ink)}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.btn.danger{background:var(--out-bg);color:var(--out)}
+.btn.block{width:100%}
+.btns{display:grid;gap:10px;margin-top:16px}
+.btns.two{grid-template-columns:1fr 1fr}
+
+/* tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 74px 1fr 1fr;align-items:center}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:700;color:var(--muted);height:52px;justify-content:center;border-radius:12px}
+.tab.on{color:var(--blue)}
+.fab{width:56px;height:56px;border-radius:50%;background:var(--blue);color:var(--blue-ink);display:grid;place-items:center;margin:-26px auto 0;box-shadow:0 6px 18px rgba(44,116,198,.45);border:4px solid var(--card)}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:560px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;max-height:92dvh;display:flex;flex-direction:column;transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+.sheet.show{transform:translateY(0)}
+.sheet.drag{transition:none}
+.grab{padding:10px 0 6px;touch-action:none}
+.grab i{display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+.sbody{overflow:auto;padding:4px 18px calc(22px + env(safe-area-inset-bottom,0px));overscroll-behavior:contain}
+.sbody h3{margin:0 0 4px;font-size:20px;font-weight:800;letter-spacing:-.3px}
+.field{display:grid;gap:6px;margin-top:14px}
+.field>label,.lab{font-size:12px;font-weight:800;color:var(--muted)}
+.input{width:100%;height:48px;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:0 14px;outline:none;color:var(--ink)}
+.input:focus{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 22%,transparent)}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.amount-in{font-size:34px;font-weight:800;height:64px;letter-spacing:-1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.two>.field{min-width:0}.input{min-width:0;max-width:100%}input[type=month].input,input[type=date].input{-webkit-appearance:none;appearance:none}
+.errmsg{color:var(--out);font-weight:700;font-size:13px;margin:12px 0 0;min-height:0}
+.openrow{display:flex;gap:12px;align-items:flex-start;margin-top:14px;background:var(--soft);border-radius:12px;padding:12px 14px}.openrow input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--blue)}.openrow b{display:block}.openrow small{display:block;color:var(--muted);font-size:12px;font-weight:600;margin-top:2px}
+.note{background:var(--soft);border-radius:12px;padding:11px 13px;font-size:13px;color:var(--muted);margin-top:14px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.kv:first-of-type{border-top:0}.kv span{color:var(--muted)}.kv b{text-align:right}
+.menuitem{display:flex;align-items:center;justify-content:space-between;width:100%;padding:15px 2px;border-top:1px solid var(--line);font-weight:700;text-align:left}
+.menuitem:first-of-type{border-top:0}
+textarea.input{height:130px;padding:12px 14px;font-size:12px;font-family:ui-monospace,Menlo,monospace;resize:none}
+.catedit{display:flex;gap:8px;align-items:center;margin-top:10px}
+.catedit .input{height:42px}
+.catedit .btn{height:42px;padding:0 12px;font-size:13px}
+
+.toast{position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom,0px));max-width:528px;margin:0 auto;z-index:60;background:var(--ink);color:var(--paper);border-radius:14px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:700;transform:translateY(30px);opacity:0;pointer-events:none;transition:all .25s}
+.toast.show{transform:none;opacity:1;pointer-events:auto}
+.toast button{color:var(--blue);font-weight:800;padding:4px 6px;filter:brightness(1.25)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.brandwrap{display:flex;align-items:center;gap:8px;min-width:0;max-width:75%}.brandwrap .brand{max-width:none;min-width:0}
+.sync{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted);opacity:.5}
+.sync.synced{background:var(--in);opacity:1}.sync.saving{background:#e0a21b;opacity:1}.sync.offline,.sync.error{background:var(--out);opacity:1}
+.gate{position:fixed;inset:0;z-index:100;background:var(--paper);display:grid;place-items:center;padding:24px}
+.gate[hidden]{display:none}
+.gate-card{width:100%;max-width:360px;text-align:center}
+.gate-logo{width:64px;height:64px;border-radius:20px;background:var(--blue);color:var(--blue-ink);display:grid;place-items:center;font-weight:800;font-size:20px;margin:0 auto 16px}
+.gate h1{margin:0 0 8px;font-size:26px;font-weight:800;letter-spacing:-.5px}
+.gate p{margin:0 0 20px}
+.gbtn{background:#fff;color:#1f1f1f;border:1px solid #dadce0;gap:12px}
+.gbtn:disabled{opacity:.6}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="top-row">
+      <div class="brandwrap"><button class="brand" id="brand" data-a="settings" aria-label="Open settings"></button><span class="sync local" id="syncDot" role="status" aria-label="Sync status"></span></div>
+      <button class="iconbtn" data-a="settings" aria-label="Menu"></button>
+    </div>
+    <div class="ctrl">
+      <div class="stepper" data-noswipe>
+        <button data-a="prevMonth" aria-label="Previous month"></button>
+        <button class="mlabel" data-a="monthSheet" id="mlabel"></button>
+        <button data-a="nextMonth" aria-label="Next month"></button>
+      </div>
+      <div class="seg" data-seg="owner" role="group" aria-label="Account" data-noswipe>
+        <button data-a="owner" data-v="Both">Both</button><button data-a="owner" data-v="ZZ">ZZ</button><button data-a="owner" data-v="AZ">AZ</button>
+      </div>
+    </div>
+  </header>
+  <main id="view"></main>
+</div>
+
+<nav class="tabs" aria-label="Sections"><div class="tabs-in" id="tabs"></div></nav>
+<div class="scrim" id="scrim" data-a="closeSheet"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab" id="grab"><i></i></div><div class="sbody" id="sbody"></div></div>
+<div class="toast" id="toast" role="status"><span id="toastMsg"></span><button data-a="undo" id="undoBtn">Undo</button></div>
+
+<div class="gate" id="gate" hidden>
+  <div class="gate-card">
+    <div class="gate-logo">Z+A</div>
+    <h1 id="gateTitle">ZZ &amp; AZ Tracker</h1>
+    <p id="gateMsg" class="muted">Sign in with Google to open your tracker.</p>
+    <button class="btn block gbtn" id="gBtn" data-a="gSignIn" disabled><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg> Sign in with Google</button>
+    <button class="btn ghost block" id="gLocal" data-a="gLocal" hidden style="margin-top:10px">Use on this phone only</button>
+    <p class="errmsg" id="gErr" role="alert"></p>
+  </div>
+</div>
+<script src="firebase-config.js"></script>
+<script>
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+const qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const IC={home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',list:'<path d="M4 6h16M4 12h16M4 18h10"/>',bill:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',debt:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5h4.5a1.8 1.8 0 0 1 0 3.5h-3a1.8 1.8 0 0 0 0 3.5H15"/>',plus:'<path d="M12 5v14M5 12h14"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',up:'<path d="M7 17L17 7M9 7h8v8"/>',down:'<path d="M7 7l10 10M17 9v8H9"/>',swap:'<path d="M7 7h12l-3-3M17 17H5l3 3"/>',search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>'};
+const ic=(n,s=20)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+const money=n=>{n=Number(n)||0;if(Math.abs(n)<0.005)n=0;return(n<0?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
+const mk=d=>String(d).slice(0,7);
+const ml=k=>{const[y,m]=k.split('-');return MONTHS[+m-1]+' '+y};
+const mAdd=(k,n)=>{let[y,m]=k.split('-').map(Number);m+=n;y+=Math.floor((m-1)/12);m=((m-1)%12+12)%12+1;return y+'-'+String(m).padStart(2,'0')};
+const mDiff=(a,b)=>{const[ay,am]=a.split('-').map(Number),[by,bm]=b.split('-').map(Number);return(by-ay)*12+(bm-am)};
+const pad=n=>String(n).padStart(2,'0');
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2,9));
+const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}};
+
+/* ---------- storage (same keys as the original tracker, so old data and backups still work) ---------- */
+const K={rec:'zzaz_money_manager_v3',sch:'zzaz_all_schedules_v1',dates:'zzaz_schedule_dates_v1',debt:'zzaz_personal_debts_v1',cat:'zzaz_custom_categories_v1',title:'zzaz_tracker_title_v1'};
+const readJSON=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v??d}catch(e){return d}};
+const writeRaw=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const BASE_CATS=['Loan','Installment','Bill','Subscription','Vehicle','Commitment','Utilities','Family','Cash','Cash withdrawal','Appliance','Salary','Other'];
+const LOCKED=['Loan','Installment','Bill','Subscription','Salary'];
+let records=readJSON(K.rec,[]);if(!Array.isArray(records))records=[];
+let schedules=readJSON(K.sch,[]);if(!Array.isArray(schedules))schedules=[];
+let debts=readJSON(K.debt,[]);if(!Array.isArray(debts))debts=[];
+let categories=readJSON(K.cat,null);
+categories=Array.isArray(categories)?categories.filter(c=>typeof c==='string'&&c.trim()):BASE_CATS.slice();
+LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
+[...records,...schedules].forEach(x=>{if(x.category&&x.category!=='Transfer'&&!categories.includes(x.category))categories.push(x.category)});
+let title=(()=>{try{return localStorage.getItem(K.title)||'ZZ & AZ Tracker'}catch(e){return'ZZ & AZ Tracker'}})();
+function persist(){
+  if(typeof cloudDirty==='function')cloudDirty();
+  writeRaw(K.rec,JSON.stringify(records));writeRaw(K.sch,JSON.stringify(schedules));writeRaw(K.debt,JSON.stringify(debts));writeRaw(K.cat,JSON.stringify(categories));
+  writeRaw(K.dates,JSON.stringify(Object.fromEntries(schedules.map(x=>[x.id,{startMonth:x.startMonth,endMonth:x.endMonth,startLabel:x.startLabel,endLabel:x.endLabel}]))));
+}
+
+/* ---------- state ---------- */
+const S={billsAll:false,view:'home',owner:'Both',month:null,type:'All',q:'',all:false,cat:null,pickYear:null};
+(function initMonth(){
+  const now=mk(todayStr());
+  if(records.some(r=>mk(r.date)===now)||!records.length){S.month=now;return}
+  const keys=[...new Set(records.map(r=>mk(r.date)))].sort();
+  S.month=keys.find(k=>k>=now)||keys[keys.length-1];
+})();
+
+/* ---------- data logic ---------- */
+const monthRecs=(m,o=S.owner)=>records.filter(r=>mk(r.date)===m&&(o==='Both'||r.owner===o));
+function totals(list){let income=0,expense=0,out=0,into=0;list.forEach(r=>{const a=Number(r.amount)||0;if(r.type==='Income')income+=a;else if(r.type==='Expense')expense+=a;else if(r.type==='Transfer Out')out+=a;else if(r.type==='Transfer In')into+=a});return{income,expense,balance:income-expense,out,into,net:income-expense-out+into}}
+const isPlus=t=>t==='Income'||t==='Transfer In';
+const kind=t=>t==='Income'?'income':t==='Expense'?'expense':'transfer';
+const rec=id=>records.find(r=>r.id===id);
+function counterpart(r){if(!r||!String(r.type).startsWith('Transfer'))return null;const want=r.type==='Transfer Out'?'Transfer In':'Transfer Out';return records.find(x=>x!==r&&x.type===want&&x.owner!==r.owner&&x.date===r.date&&Number(x.amount)===Number(r.amount))||null}
+function syncSchedule(sc,pm){
+  const old=records.filter(r=>r.scheduleId===sc.id);
+  const paid=new Map(old.map(r=>[mk(r.date),!!r.paid]));
+  const method=pm||(old[0]&&old[0].paymentMethod)||'Bank';
+  records=records.filter(r=>r.scheduleId!==sc.id);
+  for(let k=sc.startMonth;k<=sc.endMonth;k=mAdd(k,1)){
+    records.push({id:`rec-${sc.id}-${k}`,date:k+'-01',owner:sc.owner,type:sc.category==='Salary'?'Income':'Expense',category:sc.category,paymentMethod:method,desc:sc.desc,amount:sc.amount,note:'Scheduled monthly payment',scheduleId:sc.id,paid:paid.get(k)||false});
+    if(mDiff(sc.startMonth,k)>600)break;
+  }
+}
+function leftOf(sc,m){const from=m<sc.startMonth?sc.startMonth:m;const n=m>sc.endMonth?0:Math.max(0,mDiff(from,sc.endMonth)+1);return{n,amt:n*Number(sc.amount||0)}}
+const horizonOf=start=>mAdd([mk(todayStr()),S.month,start].sort().pop(),24);
+function ensureOpen(){let ch=false;schedules.forEach(sc=>{if(!sc.open)return;const h=horizonOf(sc.startMonth);if(!sc.endMonth||h>sc.endMonth){sc.endMonth=h;sc.endLabel=ml(h);syncSchedule(sc);ch=true}});if(ch)persist()}
+const schedOwner=sc=>S.owner==='Both'||sc.owner===S.owner;
+
+/* ---------- undo + toast ---------- */
+let snap=null,toastTimer=null;
+const snapshot=()=>{snap=JSON.stringify({records,schedules,debts,categories})};
+function toast(msg,undo){$('toastMsg').textContent=msg;$('undoBtn').hidden=!undo;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),undo?5500:2400)}
+function commit(){persist();render()}
+
+/* ---------- rendering ---------- */
+function render(){
+  ensureOpen();
+  $('brand').textContent=title;
+  qsa('[data-a="settings"][aria-label="Menu"]').forEach(b=>b.innerHTML=ic('more'));
+  qsa('[data-a="prevMonth"]')[0].innerHTML=ic('left',18);qsa('[data-a="nextMonth"]')[0].innerHTML=ic('right',18);
+  $('mlabel').textContent=ml(S.month);
+  qsa('[data-seg="owner"] button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.owner));
+  const tabs=[['home','Home','home'],['act','Activity','list'],null,['bills','Bills','bill'],['debts','Debts','debt']];
+  $('tabs').innerHTML=tabs.map(t=>t?`<button class="tab ${S.view===t[0]?'on':''}" data-a="view" data-v="${t[0]}" ${S.view===t[0]?'aria-current="page"':''}>${ic(t[2],22)}${t[1]}</button>`:`<button class="fab" data-a="add" aria-label="${S.view==='debts'?'Add debt':'Add transaction'}">${ic('plus',26)}</button>`).join('');
+  const v=$('view');
+  v.innerHTML=({home:homeView,act:actView,bills:billsView,debts:debtsView})[S.view]();
+  if(S.view==='act')renderActList();
+}
+function txRow(r,opts={}){
+  const k=kind(r.type),sign=isPlus(r.type)?'+':'−';
+  const sub=[r.category,r.owner,r.scheduleId?(r.paid?(r.type==='Income'?'received':'paid'):'due'):(r.paymentMethod||'')].filter(Boolean).join(' · ');
+  const amtCls=k==='income'?'pos':k==='expense'?'':'';
+  return `<button class="row" data-a="txOpen" data-id="${esc(r.id)}"><span class="badge ${k}">${ic(k==='income'?'up':k==='expense'?'down':'swap',19)}</span><span class="rmain"><span class="rtitle">${esc(r.desc)}</span><span class="rsub">${esc(sub)}${opts.date?' · '+esc(r.date):''}</span></span><span class="ramt ${amtCls}">${sign}${money(r.amount)}</span></button>`;
+}
+function homeView(){
+  if(!records.length&&!schedules.length&&!debts.length){
+    return `<div class="card empty"><b>Welcome</b>Add your first salary, bill or spending. Everything stays on this phone.<div class="btns"><button class="btn block" data-a="add">${ic('plus',18)} Add first transaction</button><button class="btn ghost block" data-a="importSheet">Import a backup</button></div></div>`;
+  }
+  const list=monthRecs(S.month),t=totals(list),xfer=t.into-t.out,flowIn=t.income,flowOut=t.expense;
+  const hero=`<section class="card hero"><div class="lbl">Left in ${ml(S.month)}${S.owner!=='Both'?' · '+S.owner:''}</div><div class="big ${t.net<0?'neg':'pos'}">${money(t.net)}</div><div class="flow" aria-hidden="true"><i class="in" style="flex:${flowIn||0.001}"></i><i class="out" style="flex:${flowOut||0.001}"></i></div><div class="trio"><div><span>Money in</span><b class="pos">${money(t.income)}</b></div><div><span>Money out</span><b class="neg">${money(t.expense)}</b></div><div><span>Transfers</span><b>${xfer<0?'−':xfer>0?'+':''}${money(Math.abs(xfer))}</b></div></div></section>`;
+  // chart
+  const y=S.month.slice(0,4),ms=MONTHS.map((_,i)=>`${y}-${pad(i+1)}`),vals=ms.map(k=>totals(monthRecs(k))),max=Math.max(1,...vals.flatMap(v=>[v.income,v.expense]));
+  const sel=vals[ms.indexOf(S.month)];
+  const chart=`<section class="card"><div class="h" style="margin-top:0"><h2>${y} month by month</h2><span class="muted">Tap a month</span></div><div class="chart" data-noswipe>${ms.map((k,i)=>`<button class="col ${k===S.month?'sel':''}" data-a="pickMonth" data-v="${k}" aria-label="${ml(k)}: in ${money(vals[i].income)}, out ${money(vals[i].expense)}"><span class="bars"><i class="b in" style="height:${Math.max(2,vals[i].income/max*100)}%"></i><i class="b out" style="height:${Math.max(2,vals[i].expense/max*100)}%"></i></span><span class="mlbl">${MONTHS[i]}</span></button>`).join('')}</div><div class="readout"><span>${ml(S.month)}</span><span><span class="pos">In ${money(sel.income)}</span> &nbsp; <span class="neg">Out ${money(sel.expense)}</span></span></div></section>`;
+  // accounts
+  let acc='';
+  if(S.owner==='Both'){acc=`<div class="acc">${['ZZ','AZ'].map(p=>{const x=totals(monthRecs(S.month,p));return `<button class="card" data-a="owner" data-v="${p}"><div class="nm">${p} account</div><div class="v ${x.net<0?'neg':''}">${money(x.net)}</div><small>In ${money(x.income)}</small><small>Out ${money(x.expense)}</small></button>`}).join('')}</div>`}
+  // unpaid bills
+  const unpaid=records.filter(r=>r.scheduleId&&r.type==='Expense'&&!r.paid&&mk(r.date)===S.month&&(S.owner==='Both'||r.owner===S.owner));
+  const bills=unpaid.length?`<section><div class="h"><h2>Bills to pay</h2><button class="link" data-a="view" data-v="bills">See all</button></div><div class="card list">${unpaid.slice(0,4).map(billRow).join('')}${unpaid.length>4?`<div class="muted" style="padding-top:10px">+ ${unpaid.length-4} more</div>`:''}</div></section>`:'';
+  // categories
+  const byCat={};list.filter(r=>r.type==='Expense').forEach(r=>{byCat[r.category]=(byCat[r.category]||0)+Number(r.amount)});
+  const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]),top=cats[0]?cats[0][1]:1;
+  const spend=cats.length?`<section><div class="h"><h2>Where it went</h2><span class="muted">Tap to see items</span></div><div class="card">${cats.map(([c,v])=>`<button class="catrow" data-a="catFilter" data-v="${esc(c)}"><div class="top2"><span>${esc(c)}</span><span>${money(v)}</span></div><div class="bar"><i style="width:${v/top*100}%"></i></div></button>`).join('')}</div></section>`:'';
+  const recent=list.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  const act=`<section><div class="h"><h2>Recent activity</h2><button class="link" data-a="view" data-v="act">See all</button></div><div class="card list">${recent.map(r=>txRow(r)).join('')||'<div class="empty">Nothing this month yet.</div>'}</div></section>`;
+  return `<div class="stack">${hero}${chart}${acc}${bills}${spend}${act}</div>`;
+}
+function fmtDate(d){return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+function billRow(r){
+  const inc=r.type==='Income',st=r.paid?(inc?'Received':'Paid'):(inc?'Expected':'Not paid yet');
+  const note=r.note&&r.note!=='Scheduled monthly payment'?r.note:'';
+  return `<div class="row" style="align-items:flex-start"><button class="tap" data-a="togglePaid" data-id="${esc(r.id)}" aria-label="${r.paid?'Mark unpaid':inc?'Mark received':'Mark paid'}"><span class="check ${r.paid?'on':''}">${ic('check',16)}</span></button><button class="rmain" style="text-align:left" data-a="txOpen" data-id="${esc(r.id)}"><span class="rtitle" style="white-space:normal">${esc(r.desc)}</span><span class="rsub" style="white-space:normal">${esc(r.owner)} account · ${esc(r.category)} · by ${esc(r.paymentMethod||'Bank')}</span><span class="rsub" style="white-space:normal">${inc?'Date':'Due'} ${fmtDate(r.date)} · <b class="${r.paid?'pos':'neg'}">${st}</b></span>${note?`<span class="rsub" style="white-space:normal">${esc(note)}</span>`:''}</button><span class="ramt ${inc?'pos':''}">${inc?'+':''}${money(r.amount)}</span></div>`;
+}
+function actView(){
+  const chips=[['All','All'],['Income','Income'],['Expense','Spending'],['Transfer','Transfers']];
+  return `<div class="search">${ic('search',18)}<input id="q" type="search" placeholder="Search description or category" value="${esc(S.q)}" autocomplete="off"></div>
+  <div class="chips" data-noswipe>${chips.map(c=>`<button class="chip ${S.type===c[0]?'on':''}" data-a="typeFilter" data-v="${c[0]}">${c[1]}</button>`).join('')}<button class="chip ${S.all?'on':''}" data-a="toggleAll">${S.all?'All months':ml(S.month)}</button>${S.cat?`<button class="chip on" data-a="catFilter" data-v="">${esc(S.cat)} ${ic('x',14)}</button>`:''}</div><div id="actList"></div>`;
+}
+function renderActList(){
+  const q=S.q.trim().toLowerCase();
+  let list=records.filter(r=>(S.owner==='Both'||r.owner===S.owner)&&(S.all||mk(r.date)===S.month)&&(S.type==='All'||(S.type==='Transfer'?String(r.type).startsWith('Transfer'):r.type===S.type))&&(!S.cat||r.category===S.cat)&&(!q||`${r.desc} ${r.category} ${r.note||''}`.toLowerCase().includes(q)));
+  list.sort((a,b)=>b.date.localeCompare(a.date));
+  const total=list.length;list=list.slice(0,150);
+  if(!list.length){$('actList').innerHTML=`<div class="empty"><b>No matches</b>Try another month, or clear the filters.</div>`;return}
+  let html='',last='';
+  list.forEach(r=>{
+    if(r.date!==last){last=r.date;const d=new Date(r.date+'T00:00:00');html+=(html?'</div>':'')+`<div class="day">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',...(S.all?{year:'numeric'}:{})})}</div><div class="card list" style="padding:4px 16px">`}
+    html+=txRow(r);
+  });
+  html+='</div>';if(total>150)html+=`<div class="muted" style="text-align:center;padding:14px">Showing the latest 150 of ${total}. Narrow with search or month.</div>`;
+  $('actList').innerHTML=html;
+}
+function billsView(){
+  const m=S.month,due=records.filter(r=>r.scheduleId&&mk(r.date)===m&&(S.owner==='Both'||r.owner===S.owner));
+  const exp=due.filter(r=>r.type==='Expense'),inc=due.filter(r=>r.type==='Income');
+  const dueAmt=exp.reduce((s,r)=>s+Number(r.amount),0),unpaidN=exp.filter(r=>!r.paid).length,paidAmt=exp.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount),0);
+  const scs=schedules.filter(schedOwner),bill=scs.filter(s=>s.category!=='Salary'),sal=scs.filter(s=>s.category==='Salary');
+  const left=bill.filter(x=>!x.open).reduce((s,sc)=>s+leftOf(sc,m).amt,0);
+  const pct=dueAmt?Math.round(paidAmt/dueAmt*100):0;
+  const sum=`<section class="card hero"><div class="lbl">Bills in ${ml(m)}</div><div class="big">${money(dueAmt)}</div><div class="bar" aria-hidden="true"><i style="width:${pct}%;background:var(--in)"></i></div><div class="trio" style="grid-template-columns:1fr 1fr 1fr"><div><span>Paid</span><b class="pos">${money(paidAmt)}</b></div><div><span>Still to pay</span><b class="${unpaidN?'neg':''}">${money(dueAmt-paidAmt)}</b></div><div><span>All future bills</span><b>${money(left)}</b></div></div></section>`;
+  const mine=due.length?`<section><div class="h"><h2>Bills this month</h2><span class="muted">Tap the circle when paid</span></div><div class="card list">${exp.map(billRow).join('')||'<div class="empty">No bills this month.</div>'}</div></section>${inc.length?`<section><div class="h"><h2>Salary this month</h2><span class="muted">Tap when received</span></div><div class="card list">${inc.map(billRow).join('')}</div></section>`:''}`:`<div class="card empty"><b>No bills in ${ml(m)}</b>Add a loan, instalment or salary and pick its first and last month.</div>`;
+  const sc=s=>{const l=leftOf(s,m),all=Math.max(1,mDiff(s.startMonth,s.endMonth)+1),done=records.filter(r=>r.scheduleId===s.id&&r.paid).length;return `<button class="row" data-a="schedOpen" data-id="${esc(s.id)}" style="display:block"><div style="display:flex;justify-content:space-between;gap:10px"><span class="rtitle" style="flex:1">${esc(s.desc)}</span><span class="ramt">${money(s.amount)}<span class="muted"> /mo</span></span></div><div class="rsub" style="margin:2px 0 8px">${esc(s.owner)} · ${s.open?'from '+ml(s.startMonth)+' · no end date, every month':ml(s.startMonth)+' to '+ml(s.endMonth)+' · '+l.n+' '+(s.category==='Salary'?'months left · '+money(l.amt)+' still to receive':'payments left · '+money(l.amt)+' still to pay')}</div>${s.open?`<div class="rsub">${done} ${s.category==='Salary'?'received':'paid'} so far · ${money(done*Number(s.amount||0))} · continues until you stop it</div>`:`<div class="bar"><i style="width:${Math.min(100,done/all*100)}%;background:${s.category==='Salary'?'var(--in)':'var(--blue)'}"></i></div><div class="rsub" style="margin-top:4px">${done} of ${all} ${s.category==='Salary'?'received':'paid'} · ${money(done*Number(s.amount||0))} so far · ${money(all*Number(s.amount||0))} in total</div>`}</button>`};
+  const plans=scs.length?`<section><div class="h"><h2>Loans &amp; regular payments</h2><span class="muted">Tap to edit</span></div><div class="card list">${[...bill,...sal].map(sc).join('')}</div></section>`:'';
+  return `<div class="stack">${sum}${mine}${plans}${allPay()}<button class="btn ghost block" data-a="addBill">${ic('plus',18)} Add a monthly bill</button></div>`;
+}
+function allPay(){
+  const list=records.filter(r=>r.scheduleId&&(S.owner==='Both'||r.owner===S.owner));
+  if(!list.length)return '';
+  if(!S.billsAll)return `<button class="btn ghost block" data-a="toggleBillsAll">Show every payment, month by month</button>`;
+  const by={};list.forEach(r=>(by[mk(r.date)]=by[mk(r.date)]||[]).push(r));
+  const body=Object.keys(by).sort().map(k=>{const items=by[k].sort((a,b)=>a.type.localeCompare(b.type)||a.owner.localeCompare(b.owner)||a.desc.localeCompare(b.desc));const exp=items.filter(r=>r.type==='Expense'),due=exp.reduce((s,r)=>s+Number(r.amount),0),un=exp.filter(r=>!r.paid).length;return `<section><div class="h" style="margin-top:10px"><h2 ${k===S.month?'style="color:var(--blue)"':''}>${ml(k)}</h2><span class="muted">${money(due)} bills${un?' · '+un+' unpaid':exp.length?' · all paid':''}</span></div><div class="card list">${items.map(billRow).join('')}</div></section>`}).join('');
+  return `<section><div class="h"><h2>Every payment</h2><button class="link" data-a="toggleBillsAll">Hide</button></div>${body}</section>`;
+}
+function debtsView(){
+  const list=debts.filter(d=>S.owner==='Both'||d.owner===S.owner);
+  const un=list.filter(d=>d.status!=='paid'),pd=list.filter(d=>d.status==='paid');
+  const bal=un.reduce((s,d)=>s+Number(d.amount||0),0),done=pd.reduce((s,d)=>s+Number(d.amount||0),0);
+  const sum=`<section class="card hero"><div class="lbl">You still owe</div><div class="big ${bal?'neg':'pos'}">${money(bal)}</div><div class="trio" style="grid-template-columns:1fr 1fr"><div><span>Open items</span><b>${un.length}</b></div><div><span>Settled so far</span><b class="pos">${money(done)}</b></div></div></section>`;
+  const groups={};list.forEach(d=>{const k=d.person.trim().toLowerCase();(groups[k]=groups[k]||{name:d.person.trim(),items:[]}).items.push(d)});
+  const gs=Object.values(groups).map(g=>({...g,open:g.items.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.amount||0),0)})).sort((a,b)=>b.open-a.open||a.name.localeCompare(b.name));
+  const body=gs.length?gs.map(g=>`<section><div class="h"><h2>${esc(g.name)}</h2><span class="${g.open?'neg':'pos'}" style="font-weight:800">${g.open?money(g.open):'Settled'}</span></div><div class="card list">${g.items.sort((a,b)=>(a.status==='paid')-(b.status==='paid')||b.date.localeCompare(a.date)).map(d=>`<div class="row"><button class="tap" data-a="togglePaidDebt" data-id="${esc(d.id)}" aria-label="${d.status==='paid'?'Mark unpaid':'Mark paid'}"><span class="check ${d.status==='paid'?'on':''}">${ic('check',16)}</span></button><button class="rmain" style="text-align:left" data-a="debtOpen" data-id="${esc(d.id)}"><span class="rtitle" style="${d.status==='paid'?'text-decoration:line-through;opacity:.6':''}">${esc(d.item)}</span><span class="rsub">${esc(d.owner)} · ${esc(d.date)}${d.note?' · '+esc(d.note):''}</span></button><span class="ramt">${money(d.amount)}</span></div>`).join('')}</div></section>`).join(''):`<div class="card empty"><b>No debts recorded</b>Add money you owe to someone. Tick it off when you have paid it back.</div>`;
+  return `<div class="stack">${sum}${body}</div>`;
+}
+
+/* ---------- sheets ---------- */
+let confirmCb=null,draft=null,dragY=0;
+function openSheet(html,after){$('toast').classList.remove('show');$('sbody').innerHTML=html;$('sheet').classList.add('show');$('scrim').classList.add('show');$('sbody').scrollTop=0;document.body.style.overflow='hidden';if(after)after()}
+function closeSheet(){$('sheet').classList.remove('show');$('scrim').classList.remove('show');$('sheet').style.transform='';document.body.style.overflow='';confirmCb=null}
+const sheetOpen=()=>$('sheet').classList.contains('show');
+function confirmSheet(titleTxt,text,okLabel,cb){confirmCb=cb;openSheet(`<h3>${esc(titleTxt)}</h3><p class="muted" style="font-size:14px;margin:6px 0 0">${esc(text)}</p><div class="btns two"><button class="btn ghost" data-a="closeSheet">Cancel</button><button class="btn danger" data-a="confirmOk">${esc(okLabel)}</button></div>`)}
+
+function segHtml(name,opts,cur){return `<div class="seg full" data-seg="${name}" role="group">${opts.map(o=>`<button type="button" data-a="seg" data-n="${name}" data-v="${o[0]}" class="${cur===o[0]?'on':''}">${o[1]}</button>`).join('')}</div>`}
+const repeats=()=>draft&&((draft.type==='Expense'&&['Loan','Installment','Bill','Subscription'].includes(draft.cat))||(draft.type==='Income'&&draft.cat==='Salary'));
+function txSheet(id,preset){
+  let r=id?rec(id):null;const sc=r&&r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
+  const defMonth=S.month===mk(todayStr())?todayStr():S.month+'-01';
+  draft={id:id||null,type:r?(r.type==='Transfer Out'||r.type==='Transfer In'?'Transfer':r.type):(preset&&preset.type)||'Expense',owner:r?r.owner:(S.owner==='AZ'?'AZ':'ZZ'),cat:r?r.category:(preset&&preset.cat)||'Other',pm:(r&&r.paymentMethod)||'Bank',open:sc?!!sc.open:(preset&&preset.open)||false,locked:!!r&&String(r.type).startsWith('Transfer')};
+  if(r&&draft.type==='Transfer')draft.owner=r.owner;
+  const start=sc?sc.startMonth:(r?mk(r.date):S.month),end=sc&&!sc.open?sc.endMonth:'';
+  const types=draft.id?[['Expense','Spending'],['Income','Income']]:[['Expense','Spending'],['Income','Income'],['Transfer','Transfer']];
+  openSheet(`<h3>${r?'Edit transaction':'Add transaction'}</h3>
+  <form data-form="tx" novalidate>
+   ${draft.locked?'':`<div class="field"><label class="lab">Type</label>${segHtml('type',types,draft.type)}</div>`}
+   <div class="field"><label for="tAmount" id="amtLbl">Amount</label><input class="input amount-in" id="tAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${r?esc(r.amount):''}"></div>
+   <div class="field"><label for="tDesc">Description</label><input class="input" id="tDesc" placeholder="e.g. Groceries" value="${r?esc(r.desc):''}" autocomplete="off"></div>
+   <div class="field" id="ownerWrap"><label class="lab" id="ownerLbl">Account</label>${draft.locked?`<div class="note" style="margin:0">${esc(r.owner)} account</div>`:segHtml('owner',[['ZZ','ZZ'],['AZ','AZ']],draft.owner)}</div>
+   <div class="field" id="catWrap"><label class="lab">Category</label><div class="chips" style="flex-wrap:wrap;overflow:visible" id="catChips"></div><div class="catedit" id="newCatRow" hidden><input class="input" id="newCat" placeholder="New category name" autocomplete="off"><button type="button" class="btn" data-a="addCat">Add</button></div></div>
+   <div class="two" id="repWrap" hidden><div class="field"><label for="tStart">First month</label><input class="input" type="month" id="tStart" value="${esc(start)}"></div><div class="field" id="endField"><label for="tEnd">Last month</label><input class="input" type="month" id="tEnd" value="${esc(end)}"></div></div>
+   <label class="openrow" id="openWrap" hidden><input type="checkbox" id="tOpen" ${draft.open?'checked':''}><span><b>No end date</b><small>Repeats every month until I stop it, for example when I retire.</small></span></label>
+   <div class="note" id="repNote" hidden></div>
+   <div class="two"><div class="field"><label for="tDate">Date</label><input class="input" type="date" id="tDate" value="${esc(r?r.date:defMonth)}"></div><div class="field" id="pmWrap"><label class="lab">Paid by</label><div id="pmSeg"></div></div></div>
+   <div class="field"><label for="tNote">Note (optional)</label><input class="input" id="tNote" value="${r?esc(r.note&&r.note!=='Scheduled monthly payment'&&r.note!=='Auto-created matching transfer'?r.note:''):''}" autocomplete="off"></div>
+   <p class="errmsg" id="err" role="alert"></p>
+   <div class="btns"><button class="btn block" type="submit">${r?'Save changes':'Save'}</button></div>
+  </form>`,()=>{drawPm();syncTx();if(!r)setTimeout(()=>{const a=$('tAmount');a&&a.focus()},300)});
+}
+function drawPm(){$('pmSeg').innerHTML=segHtml('pm',[['Bank','Bank'],['Cash','Cash'],['Transfer','Transfer']],draft.pm)}
+function drawCats(){
+  $('catChips').innerHTML=categories.filter(c=>draft.type==='Income'?true:true).map(c=>`<button type="button" class="chip ${draft.cat===c?'on':''}" data-a="pickCat" data-v="${esc(c)}">${esc(c)}</button>`).join('')+`<button type="button" class="chip" data-a="newCat">${ic('plus',14)} New</button>`;
+}
+function syncTx(){
+  const d=draft;if(!d)return;
+  qsa('#sbody [data-seg="type"] button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.type));
+  qsa('#sbody [data-seg="owner"] button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.owner));
+  qsa('#sbody [data-seg="pm"] button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.pm));
+  $('catWrap').hidden=d.type==='Transfer';
+  const rep=repeats();$('repWrap').hidden=!rep;$('repNote').hidden=!rep;$('openWrap').hidden=!rep;$('endField').hidden=!rep||!!d.open;$('tOpen').checked=!!d.open;$('repNote').textContent=d.open?'Repeats every month with no end date. When it stops, open it under Bills, untick No end date and set a last month.':'Repeats every month from the first to the last month. Each month appears under Bills where you can tick it off.';
+  $('ownerLbl').textContent=d.type==='Transfer'?'Send from':'Account';
+  $('amtLbl').textContent=rep?'Amount per month':'Amount';
+  if(rep&&!$('tStart').value)$('tStart').value=mk($('tDate').value||todayStr());
+  drawCats();
+}
+function saveTx(){
+  const d=draft,amount=Number($('tAmount').value),date=$('tDate').value,desc=$('tDesc').value.trim(),note=$('tNote').value.trim(),rep=repeats(),start=$('tStart').value,end=$('tEnd').value;
+  const err=m=>{$('err').textContent=m;buzz()};
+  if(!(amount>0))return err('Enter an amount above 0.');
+  if(!desc)return err('Add a short description.');
+  if(!date)return err('Choose a date.');
+  if(rep&&(!start||(!d.open&&(!end||start>end))))return err('Choose a first month and a last month that is the same or later.');
+  const endM=d.open?horizonOf(start||mk(date)):end;
+  snapshot();
+  const cat=d.type==='Transfer'?'Transfer':d.cat;let jump=mk(date);
+  const mkSched=()=>({id:'loan-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),owner:d.owner,category:d.cat,desc,amount,startMonth:start,endMonth:endM,startLabel:ml(start),endLabel:ml(endM),open:!!d.open});
+  if(d.id){
+    const r=rec(d.id);if(!r){closeSheet();return}
+    const sc=r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
+    if(d.locked){const c=counterpart(r);[r,c].filter(Boolean).forEach(x=>Object.assign(x,{date,amount,paymentMethod:d.pm,note:x===r?note:x.note}));r.desc=desc}
+    else if(sc&&rep){Object.assign(sc,{owner:d.owner,category:d.cat,desc,amount,startMonth:start,endMonth:endM,startLabel:ml(start),endLabel:ml(endM),open:!!d.open});syncSchedule(sc,d.pm);jump=start>S.month||endM<S.month?start:S.month}
+    else if(!sc&&rep){records=records.filter(x=>x.id!==d.id);const ns=mkSched();schedules.push(ns);syncSchedule(ns,d.pm);jump=start}
+    else if(sc&&!rep){schedules=schedules.filter(s=>s.id!==sc.id);records=records.filter(x=>x.scheduleId!==sc.id);records.push({id:uid(),date,owner:d.owner,type:d.type,category:cat,paymentMethod:d.pm,desc,amount,note});}
+    else Object.assign(r,{date,owner:d.owner,type:d.type,category:cat,paymentMethod:d.pm,desc,amount,note});
+  }else if(rep){const ns=mkSched();schedules.push(ns);syncSchedule(ns,d.pm);jump=S.month>=start&&S.month<=endM?S.month:start}
+  else if(d.type==='Transfer'){const other=d.owner==='ZZ'?'AZ':'ZZ';records.push({id:uid(),date,owner:d.owner,type:'Transfer Out',category:'Transfer',paymentMethod:d.pm,desc,amount,note},{id:uid(),date,owner:other,type:'Transfer In',category:'Transfer',paymentMethod:d.pm,desc:'Transfer from '+d.owner,amount,note:'Auto-created matching transfer'})}
+  else records.push({id:uid(),date,owner:d.owner,type:d.type,category:cat,paymentMethod:d.pm,desc,amount,note});
+  S.month=jump;closeSheet();commit();toast(d.id?'Changes saved':'Saved to '+ml(jump),true);
+}
+function txOpen(id){
+  const r=rec(id);if(!r)return;const k=kind(r.type),sc=r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
+  openSheet(`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><span class="badge ${k}">${ic(k==='income'?'up':k==='expense'?'down':'swap',19)}</span><div style="flex:1;min-width:0"><h3 style="overflow:hidden;text-overflow:ellipsis">${esc(r.desc)}</h3><div class="muted">${esc(r.type)}</div></div></div>
+  <div class="big" style="font-size:32px;font-weight:800;letter-spacing:-1px;margin:6px 0 8px">${isPlus(r.type)?'+':'−'}${money(r.amount)}</div>
+  <div class="kv"><span>Date</span><b>${esc(r.date)}</b></div><div class="kv"><span>Account</span><b>${esc(r.owner)}</b></div><div class="kv"><span>Category</span><b>${esc(r.category)}</b></div>${r.scheduleId?`<div class="kv"><span>Status</span><b class="${r.paid?'pos':'neg'}">${r.paid?(r.type==='Income'?'Received':'Paid'):(r.type==='Income'?'Expected':'Not paid yet')}</b></div><div class="field"><label class="lab">Paid by</label><div class="seg full" data-seg="rpm">${['Bank','Cash','Transfer'].map(m=>`<button type="button" data-a="seg" data-n="rpm" data-id="${esc(r.id)}" data-v="${m}" class="${(r.paymentMethod||'Bank')===m?'on':''}">${m}</button>`).join('')}</div></div>`:(r.paymentMethod?`<div class="kv"><span>Paid by</span><b>${esc(r.paymentMethod)}</b></div>`:'')}${sc?`<div class="kv"><span>Repeats</span><b>${sc.open?'from '+ml(sc.startMonth)+', no end date':ml(sc.startMonth)+' to '+ml(sc.endMonth)}</b></div>`:''}${r.note&&r.note!=='Scheduled monthly payment'&&r.note!=='Auto-created matching transfer'?`<div class="kv"><span>Note</span><b>${esc(r.note)}</b></div>`:''}
+  <div class="btns">${r.scheduleId?`<button class="btn ${r.paid?'ghost':''}" data-a="togglePaidClose" data-id="${esc(r.id)}">${r.paid?'Mark not paid':r.type==='Income'?'Mark received':'Mark paid'}</button>`:''}<div class="btns two" style="margin:0"><button class="btn ghost" data-a="txEdit" data-id="${esc(r.id)}">Edit</button><button class="btn danger" data-a="txDelete" data-id="${esc(r.id)}">Delete</button></div></div>`);
+}
+function payList(s){
+  const pays=records.filter(r=>r.scheduleId===s.id).sort((a,b)=>a.date.localeCompare(b.date));
+  const inc=s.category==='Salary',paid=pays.filter(r=>r.paid),paidAmt=paid.reduce((t,r)=>t+Number(r.amount),0),total=pays.reduce((t,r)=>t+Number(r.amount),0);
+  return `<div class="trio" style="margin:14px 0 6px"><div><span>${inc?'Received':'Paid'}</span><b class="pos">${money(paidAmt)}</b></div><div><span>Remaining</span><b>${money(total-paidAmt)}</b></div><div><span>${s.open?'Next 2 years':'Total'}</span><b>${money(total)}</b></div></div><div class="h" style="margin-top:12px"><h2>All payments</h2><span class="muted">${paid.length} of ${pays.length}</span></div><div class="list" style="border:1px solid var(--line);border-radius:14px;padding:0 12px;max-height:300px;overflow:auto">${pays.map(r=>`<div class="row"><button type="button" class="tap" data-a="togglePaidSched" data-id="${esc(r.id)}" data-sid="${esc(s.id)}" aria-label="Toggle paid"><span class="check ${r.paid?'on':''}">${ic('check',16)}</span></button><span class="rmain"><span class="rtitle" ${mk(r.date)===S.month?'style="color:var(--blue)"':''}>${ml(mk(r.date))}</span><span class="rsub">${r.paid?(inc?'Received':'Paid'):(inc?'Expected':'Not paid yet')} · ${esc(r.paymentMethod||'Bank')}</span></span><span class="ramt">${money(r.amount)}</span></div>`).join('')}</div>`;
+}
+function schedSheet(id){
+  const s=schedules.find(x=>x.id===id);if(!s)return;
+  openSheet(`<h3>${esc(s.desc)}</h3><div class="muted">${esc(s.owner)} · ${esc(s.category)} · ${s.open?'from '+ml(s.startMonth)+' · no end date':ml(s.startMonth)+' to '+ml(s.endMonth)}</div>${payList(s)}
+  <form data-form="sched" data-id="${esc(id)}" novalidate>
+   <div class="field"><label for="sDesc">Name</label><input class="input" id="sDesc" value="${esc(s.desc)}"></div>
+   <div class="field"><label for="sAmt">Amount per month</label><input class="input" id="sAmt" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(s.amount)}"></div>
+   <div class="two"><div class="field"><label for="sStart">First month</label><input class="input" id="sStart" type="month" value="${esc(s.startMonth)}"></div><div class="field" id="sEndField" ${s.open?'hidden':''}><label for="sEnd">Last month</label><input class="input" id="sEnd" type="month" value="${s.open?'':esc(s.endMonth)}"></div></div>
+   <label class="openrow"><input type="checkbox" id="sOpen" ${s.open?'checked':''}><span><b>No end date</b><small>Repeats every month until I stop it, for example when I retire. To stop, untick this and set a last month.</small></span></label>
+   <div class="note">Months you have already ticked stay ticked if they are still inside the new range.</div>
+   <p class="errmsg" id="err" role="alert"></p>
+   <div class="btns"><button class="btn block" type="submit">Save</button><button type="button" class="btn danger block" data-a="schedDelete" data-id="${esc(id)}">Delete this bill</button></div>
+  </form>`);
+}
+function debtSheet(id){
+  const d=id?debts.find(x=>x.id===id):null;
+  openSheet(`<h3>${d?'Edit debt':'Add debt'}</h3><div class="muted">Money you owe to someone</div>
+  <form data-form="debt" data-id="${esc(id||'')}" novalidate>
+   <div class="field"><label for="dAmt">Amount</label><input class="input amount-in" id="dAmt" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" value="${d?esc(d.amount):''}"></div>
+   <div class="field"><label for="dPerson">Who do you owe?</label><input class="input" id="dPerson" placeholder="e.g. Ali" value="${d?esc(d.person):''}" autocomplete="off"></div>
+   <div class="field"><label for="dItem">What for?</label><input class="input" id="dItem" placeholder="e.g. Borrowed for car repair" value="${d?esc(d.item):''}" autocomplete="off"></div>
+   <div class="field"><label class="lab">Account</label>${segHtml('dOwner',[['ZZ','ZZ'],['AZ','AZ']],d?d.owner:(S.owner==='AZ'?'AZ':'ZZ'))}</div>
+   <div class="two"><div class="field"><label for="dDate">Date</label><input class="input" id="dDate" type="date" value="${esc(d?d.date:todayStr())}"></div><div class="field"><label for="dNote">Note</label><input class="input" id="dNote" value="${d?esc(d.note||''):''}" autocomplete="off"></div></div>
+   <p class="errmsg" id="err" role="alert"></p>
+   <div class="btns"><button class="btn block" type="submit">${d?'Save changes':'Save debt'}</button>${d?`<button type="button" class="btn danger block" data-a="debtDelete" data-id="${esc(id)}">Delete</button>`:''}</div>
+  </form>`,()=>{if(!d)setTimeout(()=>{const a=$('dAmt');a&&a.focus()},300)});
+}
+function monthSheet(){
+  const y=S.pickYear||S.month.slice(0,4);S.pickYear=y;
+  openSheet(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><button class="iconbtn" data-a="yearPrev" aria-label="Previous year">${ic('left',18)}</button><h3 style="margin:0">${y}</h3><button class="iconbtn" data-a="yearNext" aria-label="Next year">${ic('right',18)}</button></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${MONTHS.map((n,i)=>{const k=`${y}-${pad(i+1)}`,has=records.some(r=>mk(r.date)===k);return `<button class="chip ${k===S.month?'on':''}" style="height:50px;border-radius:14px;justify-content:center;font-size:15px" data-a="pickMonthClose" data-v="${k}">${n}${has?' <span style="width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5"></span>':''}</button>`}).join('')}</div>
+  <div class="btns"><button class="btn ghost block" data-a="thisMonth">Go to this month</button></div>`);
+}
+function settingsSheet(){
+  openSheet(`<h3>Settings</h3><div class="muted">${CLOUD&&CLOUD.ref?'Synced to your Google account.':'Your records are saved on this phone, in this browser.'}</div>${cloudBlock()}
+  <div class="field"><label for="setTitle">Tracker name</label><div class="catedit" style="margin-top:0"><input class="input" id="setTitle" value="${esc(title)}" maxlength="40"><button class="btn" data-a="saveTitle">Save</button></div></div>
+  <div style="margin-top:12px">
+   <button class="menuitem" data-a="catsSheet">Manage categories ${ic('right',18)}</button>
+   <button class="menuitem" data-a="exportSheet">Back up my data ${ic('right',18)}</button>
+   <button class="menuitem" data-a="importSheet">Restore from a backup ${ic('right',18)}</button>
+   <button class="menuitem" data-a="eraseAsk" style="color:var(--out)">Erase all data ${ic('right',18)}</button>
+  </div>`);
+}
+function catsSheet(msg){
+  openSheet(`<h3>Categories</h3><div class="muted">Rename or remove the ones you do not use. Loan, Installment and Salary are built in.</div>${msg?`<p class="errmsg">${esc(msg)}</p>`:''}
+  <div style="margin-top:6px">${categories.map((c,i)=>LOCKED.includes(c)?`<div class="catedit"><div class="input" style="display:flex;align-items:center;background:var(--soft)">${esc(c)}</div></div>`:`<div class="catedit"><input class="input" data-cat="${i}" value="${esc(c)}"><button class="btn ghost" data-a="catRename" data-i="${i}">Save</button><button class="btn danger" data-a="catDelete" data-i="${i}" aria-label="Delete ${esc(c)}">${ic('x',16)}</button></div>`).join('')}</div>
+  <div class="catedit" style="margin-top:16px"><input class="input" id="catNew" placeholder="New category"><button class="btn" data-a="catAdd2">Add</button></div>`);
+}
+function backupObj(){return{app:'ZZ & AZ TRACKER',formatVersion:1,exportedAt:new Date().toISOString(),records,schedules,debts,scheduleDates:readJSON(K.dates,{}),categories,title}}
+function exportSheet(){
+  const txt=JSON.stringify(backupObj(),null,2);
+  openSheet(`<h3>Back up my data</h3><p class="muted" style="font-size:14px;margin:6px 0 0">Save this file somewhere safe (Files, email to yourself). You can restore it here at any time, even on a new phone.</p>
+  <div class="btns"><button class="btn block" data-a="saveFile">Save backup file</button><button class="btn ghost block" data-a="copyBackup">Copy as text</button></div>
+  <div class="field"><label for="bk">Backup text</label><textarea class="input" id="bk" readonly>${esc(txt)}</textarea></div><p class="errmsg" id="err"></p>`);
+}
+function importSheet(){
+  openSheet(`<h3>Restore from a backup</h3><p class="muted" style="font-size:14px;margin:6px 0 0">Works with backups from the old tracker too. Restoring replaces what is on this phone now.</p>
+  <div class="btns"><label class="btn block" style="cursor:pointer">Choose backup file<input type="file" id="impFile" accept=".json,application/json,text/plain" hidden></label></div>
+  <div class="field"><label for="impText">Or paste backup text</label><textarea class="input" id="impText" placeholder="Paste here"></textarea></div><p class="errmsg" id="err"></p>
+  <div class="btns"><button class="btn ghost block" data-a="importPaste">Restore from pasted text</button></div>`);
+}
+function runImport(text){
+  let data;try{data=JSON.parse(String(text||''))}catch(e){data=null}
+  if(!data||data.app!=='ZZ & AZ TRACKER'||!Array.isArray(data.records)||!Array.isArray(data.schedules)||!Array.isArray(data.debts)){const e=$('err');if(e)e.textContent='This is not a ZZ & AZ Tracker backup.';return}
+  confirmSheet('Replace current data?',`This backup has ${data.records.length} records, ${data.schedules.length} bills and ${data.debts.length} debts. It will replace everything on this phone.`,'Restore',()=>{
+    snapshot();records=data.records;schedules=data.schedules;debts=data.debts;
+    if(Array.isArray(data.categories)&&data.categories.length)categories=data.categories.filter(c=>typeof c==='string'&&c.trim());
+    LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
+    if(typeof data.title==='string'&&data.title.trim()){title=data.title.trim();writeRaw(K.title,title)}
+    if(data.scheduleDates&&typeof data.scheduleDates==='object')schedules.forEach(s=>{const o=data.scheduleDates[s.id];if(o)Object.assign(s,o)});
+    S.month=mk(todayStr());const ks=[...new Set(records.map(r=>mk(r.date)))].sort();if(ks.length&&!ks.includes(S.month))S.month=ks.find(k=>k>=S.month)||ks[ks.length-1];
+    closeSheet();commit();toast('Backup restored',true)});
+}
+
+/* ---------- actions ---------- */
+const A={
+  view(d){S.view=d.v;window.scrollTo(0,0);render()},
+  owner(d){S.owner=d.v;render()},
+  prevMonth(){S.month=mAdd(S.month,-1);render()},nextMonth(){S.month=mAdd(S.month,1);render()},
+  pickMonth(d){S.month=d.v;buzz();render()},
+  monthSheet(){S.pickYear=S.month.slice(0,4);monthSheet()},
+  yearPrev(){S.pickYear=String(+S.pickYear-1);monthSheet()},yearNext(){S.pickYear=String(+S.pickYear+1);monthSheet()},
+  pickMonthClose(d){S.month=d.v;S.pickYear=null;closeSheet();render()},
+  thisMonth(){S.month=mk(todayStr());closeSheet();render()},
+  add(){if(S.view==='debts')debtSheet();else txSheet()},
+  addBill(){txSheet(null,{type:'Expense',cat:'Loan'})},
+  closeSheet,confirmOk(){const cb=confirmCb;confirmCb=null;closeSheet();cb&&cb()},
+  seg(d){if(d.n==='rpm'){const r=rec(d.id);if(r){r.paymentMethod=d.v;persist();qsa('[data-seg="rpm"] button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.v));render()}return}
+    if(!draft&&d.n!=='dOwner')return;
+    if(d.n==='type'){draft.type=d.v;if(d.v==='Income'){draft.cat='Salary';draft.open=true}else if(d.v==='Expense'){if(draft.cat==='Salary')draft.cat='Other';draft.open=false}}
+    else if(d.n==='owner')draft.owner=d.v;else if(d.n==='pm')draft.pm=d.v;
+    else if(d.n==='dOwner'){qsa('[data-seg="dOwner"] button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.v));return}
+    syncTx()},
+  pickCat(d){draft.cat=d.v;if((d.v==='Salary'&&draft.type==='Income')||(d.v==='Bill'||d.v==='Subscription'))draft.open=true;else if(d.v==='Loan'||d.v==='Installment')draft.open=false;syncTx()},
+  newCat(){$('newCatRow').hidden=false;$('newCat').focus()},
+  addCat(){const n=$('newCat').value.trim();if(!n)return;if(categories.some(c=>c.toLowerCase()===n.toLowerCase())){draft.cat=categories.find(c=>c.toLowerCase()===n.toLowerCase())}else{categories.push(n);draft.cat=n;persist()}$('newCat').value='';$('newCatRow').hidden=true;syncTx()},
+  typeFilter(d){S.type=d.v;render()},toggleAll(){S.all=!S.all;render()},
+  catFilter(d){S.cat=d.v||null;if(d.v){S.view='act';S.type='All';S.all=false;window.scrollTo(0,0)}render()},
+  txOpen(d){txOpen(d.id)},txEdit(d){txSheet(d.id)},
+  txDelete(d){const r=rec(d.id);if(!r)return;snapshot();
+    const c=r.scheduleId?null:counterpart(r);records=records.filter(x=>x.id!==r.id&&x!==c);
+    if(r.scheduleId&&!records.some(x=>x.scheduleId===r.scheduleId))schedules=schedules.filter(s=>s.id!==r.scheduleId);
+    closeSheet();commit();toast('Deleted',true)},
+  togglePaid(d){const r=rec(d.id);if(!r)return;r.paid=!r.paid;buzz();commit()},
+  togglePaidClose(d){const r=rec(d.id);if(!r)return;r.paid=!r.paid;buzz();closeSheet();commit()},
+  schedOpen(d){schedSheet(d.id)},
+  toggleBillsAll(){S.billsAll=!S.billsAll;render()},
+  togglePaidSched(d){const r=rec(d.id);if(!r)return;r.paid=!r.paid;buzz();persist();render();const y=$('sbody').scrollTop;const l=document.querySelector('#sbody .list');const ly=l?l.scrollTop:0;schedSheet(d.sid);$('sbody').scrollTop=y;const l2=document.querySelector('#sbody .list');if(l2)l2.scrollTop=ly},
+  schedDelete(d){const s=schedules.find(x=>x.id===d.id);if(!s)return;confirmSheet('Delete this bill?',`“${s.desc}” and all its monthly payments will be removed.`,'Delete',()=>{snapshot();schedules=schedules.filter(x=>x.id!==s.id);records=records.filter(r=>r.scheduleId!==s.id);commit();toast('Bill deleted',true)})},
+  debtOpen(d){debtSheet(d.id)},
+  togglePaidDebt(d){const x=debts.find(y=>y.id===d.id);if(!x)return;x.status=x.status==='paid'?'unpaid':'paid';buzz();commit()},
+  debtDelete(d){const x=debts.find(y=>y.id===d.id);if(!x)return;snapshot();debts=debts.filter(y=>y.id!==d.id);closeSheet();commit();toast('Debt deleted',true)},
+  undo(){if(!snap)return;const o=JSON.parse(snap);records=o.records;schedules=o.schedules;debts=o.debts;categories=o.categories;snap=null;$('toast').classList.remove('show');commit()},
+  settings(){settingsSheet()},
+  async gSignIn(){const f=CLOUD.fb;if(!f){cloudInit();return}gateBusy(true,'Opening Google…');
+    try{if(f.auth.currentUser){await onSignedIn(f.auth.currentUser);return}await f.authM.signInWithPopup(f.auth,new f.authM.GoogleAuthProvider())}
+    catch(e){if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment'].includes(e.code)){try{await f.authM.signInWithRedirect(f.auth,new f.authM.GoogleAuthProvider());return}catch(e2){e=e2}}gateBusy(false);$('gErr').textContent=friendlyErr(e)}},
+  gLocal(){CLOUD.localOnly=true;$('gate').hidden=true;setSync('local');render()},
+  async gSignOut(){const f=CLOUD.fb;if(!f)return;await cloudFlush();if(CLOUD.unsub){CLOUD.unsub();CLOUD.unsub=null}CLOUD.ref=null;
+    CLOUD.applying=true;records=[];schedules=[];debts=[];categories=BASE_CATS.slice();persist();CLOUD.applying=false;try{localStorage.removeItem('zzaz_cloud_dirty')}catch(e){}
+    closeSheet();render();try{await f.authM.signOut(f.auth)}catch(e){toast('Could not sign out')}},
+  async shareAdd(){const el=$('shareEmail'),er=$('shareErr');const em=(el.value||'').trim().toLowerCase();er.textContent='';
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){er.textContent='Enter a full email address.';return}
+    if((CLOUD.members||[]).includes(em)){er.textContent='Already added.';return}
+    try{await CLOUD.fb.fsM.updateDoc(CLOUD.ref,{members:CLOUD.fb.fsM.arrayUnion(em)});CLOUD.members=[...(CLOUD.members||[]),em];settingsSheet();toast('Added '+em)}catch(e){er.textContent='Could not add: '+(e.code||e.message)}},
+  async shareRemove(d){try{await CLOUD.fb.fsM.updateDoc(CLOUD.ref,{members:CLOUD.fb.fsM.arrayRemove(d.e)});CLOUD.members=(CLOUD.members||[]).filter(x=>x!==d.e);settingsSheet();toast('Removed')}catch(e){toast('Could not remove')}},
+  saveTitle(){const v=$('setTitle').value.trim();if(!v)return;title=v;writeRaw(K.title,v);cloudDirty();closeSheet();render();toast('Name updated')},
+  catsSheet(){catsSheet()},
+  catAdd2(){const n=$('catNew').value.trim();if(!n)return;if(categories.some(c=>c.toLowerCase()===n.toLowerCase())){catsSheet('That category already exists.');return}categories.push(n);persist();catsSheet()},
+  catRename(d){const i=+d.i,old=categories[i],n=(qsa(`[data-cat="${i}"]`)[0]||{}).value;const v=(n||'').trim();if(!v||v===old)return;if(categories.some((c,j)=>j!==i&&c.toLowerCase()===v.toLowerCase())){catsSheet('That name is already used.');return}categories[i]=v;records.forEach(r=>{if(r.category===old)r.category=v});schedules.forEach(s=>{if(s.category===old)s.category=v});commit();catsSheet();toast('Renamed')},
+  catDelete(d){const i=+d.i,c=categories[i];if(records.some(r=>r.category===c)||schedules.some(s=>s.category===c)){catsSheet('“'+c+'” is used by existing entries. Rename it instead.');return}categories.splice(i,1);persist();catsSheet()},
+  exportSheet(){exportSheet()},importSheet(){importSheet()},
+  async saveFile(){const name='ZZ_AZ_TRACKER_Backup_'+todayStr()+'.json',data=JSON.stringify(backupObj(),null,2);try{if(typeof claude!=='undefined'&&claude.use){const dl=await claude.use('downloads');if(!dl)throw 0;await dl.save({filename:name,data})}else{const u=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}toast('Backup saved')}catch(e){const el=$('err');if(el)el.textContent=(e&&e.code==='declined')?'Save cancelled.':'Saving files is not available here. Use “Copy as text” and paste it into Notes or an email.'}},
+  async copyBackup(){const t=$('bk');try{await navigator.clipboard.writeText(t.value);toast('Copied')}catch(e){t.select();try{document.execCommand('copy');toast('Copied')}catch(_){$('err').textContent='Press and hold the text to copy it.'}}},
+  importPaste(){runImport($('impText').value)},
+  eraseAsk(){confirmSheet('Erase everything?','All transactions, bills and debts will be removed'+(CLOUD&&CLOUD.ref?' from the cloud and from every phone that uses this tracker':' on this phone')+'. Make a backup first if you might need them.','Erase all',()=>{snapshot();records=[];schedules=[];debts=[];commit();toast('All data erased',true)})}
+};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t||!A[t.dataset.a])return;A[t.dataset.a](t.dataset,t,e)});
+document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;renderActList()}});
+document.addEventListener('change',e=>{
+  if(e.target.id==='tOpen'&&draft){draft.open=e.target.checked;syncTx()}
+  if(e.target.id==='sOpen'){$('sEndField').hidden=e.target.checked}
+
+  if(e.target.id==='impFile'){const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>runImport(rd.result);rd.onerror=()=>{const el=$('err');if(el)el.textContent='Could not read that file.'};rd.readAsText(f);e.target.value=''}
+  if(e.target.id==='tDate'&&draft&&draft.type!=='Transfer'&&repeats()&&!$('tStart').value)$('tStart').value=mk(e.target.value);
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();const f=e.target.dataset.form;
+  if(f==='tx')saveTx();
+  else if(f==='sched'){const s=schedules.find(x=>x.id===e.target.dataset.id);if(!s)return;const desc=$('sDesc').value.trim(),amt=Number($('sAmt').value),st=$('sStart').value,op=$('sOpen').checked,en=op?horizonOf($('sStart').value||S.month):$('sEnd').value,err=$('err');
+    if(!desc)return err.textContent='Add a name.';if(!(amt>0))return err.textContent='Enter an amount above 0.';if(!st||(!op&&(!en||st>en)))return err.textContent='Last month must be the same as or later than the first month.';
+    snapshot();Object.assign(s,{desc,amount:amt,startMonth:st,endMonth:en,startLabel:ml(st),endLabel:ml(en),open:op});syncSchedule(s);closeSheet();commit();toast('Bill updated',true)}
+  else if(f==='debt'){const id=e.target.dataset.id,err=$('err');const data={owner:(qsa('[data-seg="dOwner"] button.on')[0]||{dataset:{v:'ZZ'}}).dataset.v,person:$('dPerson').value.trim(),item:$('dItem').value.trim(),date:$('dDate').value,amount:Number($('dAmt').value),note:$('dNote').value.trim()};
+    if(!(data.amount>0))return err.textContent='Enter an amount above 0.';if(!data.person)return err.textContent='Who do you owe?';if(!data.item)return err.textContent='What is it for?';if(!data.date)return err.textContent='Choose a date.';
+    snapshot();if(id){const d=debts.find(x=>x.id===id);if(d)Object.assign(d,data)}else debts.push({id:uid(),status:'unpaid',...data});
+    closeSheet();commit();toast('Debt saved',true)}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetOpen())closeSheet()});
+
+/* swipe left/right to change month; drag the sheet handle down to close */
+(function(){
+  let sx=0,sy=0,st=null,ok=false;
+  const v=$('view');
+  v.addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;st=e.target;ok=!e.target.closest('[data-noswipe],input,textarea')},{passive:true});
+  v.addEventListener('touchend',e=>{if(!ok||sheetOpen())return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>90&&Math.abs(dy)<45&&Math.abs(dx)>Math.abs(dy)*2.2){S.month=mAdd(S.month,dx<0?1:-1);buzz();render()}},{passive:true});
+  const g=$('grab'),sh=$('sheet');let y0=0,dy=0,on=false;
+  g.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;dy=0;on=true;sh.classList.add('drag')},{passive:true});
+  g.addEventListener('touchmove',e=>{if(!on)return;dy=Math.max(0,e.touches[0].clientY-y0);sh.style.transform=`translateY(${dy}px)`},{passive:true});
+  g.addEventListener('touchend',()=>{on=false;sh.classList.remove('drag');if(dy>90)closeSheet();else sh.style.transform=''});
+})();
+
+
+/* ===== Firebase: Google sign-in + Firestore sync ===== */
+var CLOUD={fb:null,ref:null,user:null,email:'',owner:null,ownerEmail:'',members:[],state:'local',dirty:false,applying:false,timer:null,unsub:null,clientId:uid(),localOnly:false};
+const FB_VERSION='10.14.1';
+const cfg=window.FIREBASE_CONFIG;
+const cfgOk=!!(cfg&&cfg.apiKey&&!String(cfg.apiKey).startsWith('PASTE'));
+const SYNC_TXT={local:'This phone only',saving:'Saving…',synced:'Synced',offline:'Offline, will sync when back online',error:'Sync problem'};
+function setSync(st){CLOUD.state=st;const d=$('syncDot');if(d){d.className='sync '+st;d.title=SYNC_TXT[st]||''}const t=$('syncTxt');if(t)t.textContent=SYNC_TXT[st]||''}
+const payloadObj=()=>({records,schedules,debts,categories,title});
+const payloadStr=()=>JSON.stringify(payloadObj());
+function parsePayload(str){try{const p=JSON.parse(str);if(p&&Array.isArray(p.records)&&Array.isArray(p.schedules)&&Array.isArray(p.debts))return p}catch(e){}return null}
+const hasData=p=>!!p&&(p.records.length||p.schedules.length||p.debts.length);
+function applyRemote(p){
+  CLOUD.applying=true;records=p.records;schedules=p.schedules;debts=p.debts;
+  if(Array.isArray(p.categories)&&p.categories.length)categories=p.categories.filter(c=>typeof c==='string'&&c.trim());
+  LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
+  [...records,...schedules].forEach(x=>{if(x.category&&x.category!=='Transfer'&&!categories.includes(x.category))categories.push(x.category)});
+  if(typeof p.title==='string'&&p.title.trim()){title=p.title.trim();writeRaw(K.title,title)}
+  persist();CLOUD.applying=false;render();
+}
+function friendlyErr(e){const c=e&&e.code||'';
+  if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request')return 'Sign-in was cancelled. Tap the button to try again.';
+  if(c==='auth/unauthorized-domain')return 'This website address is not allowed in Firebase yet. Add it under Authentication, Settings, Authorized domains.';
+  if(c==='auth/network-request-failed')return 'No internet connection.';
+  if(c==='permission-denied')return 'No permission to open the data. Publish the Firestore rules from firestore.rules in Firebase.';
+  return (e&&e.message)||'Something went wrong. Try again.'}
+function gateBusy(on,msg){$('gBtn').disabled=!!on;if(msg)$('gateMsg').textContent=msg;$('gErr').textContent=''}
+function gateFail(msg){$('gBtn').disabled=false;$('gLocal').hidden=false;$('gateMsg').textContent='Sign in with Google to open your tracker.';$('gErr').textContent=msg}
+async function cloudInit(){
+  if(!cfgOk){setSync('local');return}
+  $('gateTitle').textContent=title;$('gate').hidden=false;gateBusy(true,'Checking sign-in…');
+  const t=setTimeout(()=>gateFail('Cannot reach Google. Check your internet connection.'),12000);
+  try{
+    const base='https://www.gstatic.com/firebasejs/'+FB_VERSION+'/';
+    const [appM,authM,fsM]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
+    clearTimeout(t);
+    const app=appM.initializeApp(cfg),auth=authM.getAuth(app);
+    let db;try{db=fsM.initializeFirestore(app,{localCache:fsM.persistentLocalCache({tabManager:fsM.persistentMultipleTabManager()})})}catch(e){db=fsM.getFirestore(app)}
+    CLOUD.fb={appM,authM,fsM,auth,db};
+    authM.onAuthStateChanged(auth,u=>{if(u)onSignedIn(u);else onSignedOut()},e=>gateFail(friendlyErr(e)));
+  }catch(e){clearTimeout(t);gateFail('Could not load Firebase. '+(e.message||''))}
+}
+function onSignedOut(){
+  if(CLOUD.unsub){CLOUD.unsub();CLOUD.unsub=null}CLOUD.ref=null;CLOUD.user=null;if(CLOUD.localOnly)return;
+  setSync('local');$('gateTitle').textContent=title;$('gate').hidden=false;gateBusy(false,'Sign in with Google to open your tracker. Your records sync across your phones.');render();
+}
+async function onSignedIn(u){
+  CLOUD.localOnly=false;gateBusy(true,'Opening your tracker…');
+  try{await attach(u);$('gate').hidden=true;$('gLocal').hidden=true;render()}catch(e){console.error(e);gateFail(friendlyErr(e))}
+}
+async function attach(u){
+  const {db,fsM}=CLOUD.fb;const email=(u.email||'').toLowerCase();CLOUD.user=u;CLOUD.email=email;
+  if(CLOUD.unsub){CLOUD.unsub();CLOUD.unsub=null}
+  const snap=await fsM.getDocs(fsM.query(fsM.collection(db,'trackers'),fsM.where('members','array-contains',email)));
+  const score=d=>(hasData(parsePayload(d.data().payload))?2:0)+(d.data().owner===u.uid?1:0);
+  const d=snap.docs.slice().sort((a,b)=>score(b)-score(a))[0];
+  const localHas=!!(records.length||schedules.length||debts.length);
+  let unsynced=false;try{unsynced=localStorage.getItem('zzaz_cloud_dirty')==='1'}catch(e){}
+  if(!d){
+    CLOUD.ref=await fsM.addDoc(fsM.collection(db,'trackers'),{owner:u.uid,ownerEmail:email,members:[email],payload:payloadStr(),clientId:CLOUD.clientId,updatedBy:email,updatedAt:fsM.serverTimestamp()});
+  }else{
+    CLOUD.ref=d.ref;const data=d.data(),p=parsePayload(data.payload);
+    if(hasData(p)&&!(unsynced&&localHas)){
+      if(localHas&&payloadStr()!==data.payload)writeRaw('zzaz_local_backup_before_cloud',payloadStr());
+      applyRemote(p);
+    }else if(localHas){
+      await fsM.updateDoc(CLOUD.ref,{payload:payloadStr(),clientId:CLOUD.clientId,updatedBy:email,updatedAt:fsM.serverTimestamp()});
+      try{localStorage.removeItem('zzaz_cloud_dirty')}catch(e){}
+    }
+  }
+  CLOUD.dirty=false;setSync('synced');
+  CLOUD.unsub=fsM.onSnapshot(CLOUD.ref,s=>{
+    if(!s.exists()){gateFail('This tracker no longer exists.');$('gate').hidden=false;return}
+    const x=s.data();CLOUD.owner=x.owner;CLOUD.ownerEmail=x.ownerEmail||'';CLOUD.members=x.members||[];
+    if(s.metadata&&s.metadata.hasPendingWrites){setSync('saving');return}
+    setSync(s.metadata&&s.metadata.fromCache&&!navigator.onLine?'offline':'synced');
+    if(x.clientId!==CLOUD.clientId&&!CLOUD.dirty){const p=parsePayload(x.payload);if(p&&payloadStr()!==x.payload)applyRemote(p)}
+  },e=>{if(e.code==='permission-denied'){$('gate').hidden=false;gateFail('You no longer have access to this tracker.')}else setSync('error')});
+}
+function cloudDirty(){
+  if(!CLOUD||!CLOUD.ref||CLOUD.applying)return;
+  CLOUD.dirty=true;try{localStorage.setItem('zzaz_cloud_dirty','1')}catch(e){}
+  setSync('saving');clearTimeout(CLOUD.timer);CLOUD.timer=setTimeout(cloudFlush,700);
+}
+async function cloudFlush(){
+  if(!CLOUD||!CLOUD.ref||!CLOUD.dirty)return;clearTimeout(CLOUD.timer);
+  const str=payloadStr(),{fsM}=CLOUD.fb;CLOUD.dirty=false;
+  try{
+    await fsM.updateDoc(CLOUD.ref,{payload:str,clientId:CLOUD.clientId,updatedBy:CLOUD.email,updatedAt:fsM.serverTimestamp()});
+    if(!CLOUD.dirty){try{localStorage.removeItem('zzaz_cloud_dirty')}catch(e){}setSync('synced')}
+  }catch(e){CLOUD.dirty=true;setSync(e.code==='unavailable'?'offline':'error')}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')cloudFlush()});
+window.addEventListener('online',()=>{if(CLOUD.ref&&CLOUD.dirty)cloudFlush();else if(CLOUD.ref)setSync('synced')});
+window.addEventListener('offline',()=>{if(CLOUD.ref)setSync('offline')});
+function cloudBlock(){
+  if(!cfgOk)return '<div class="note">Cloud sync is not set up in this copy yet, so records stay on this phone only.</div>';
+  if(!CLOUD.ref)return '<div class="note">Not signed in. Records stay on this phone only.</div>';
+  const isOwner=CLOUD.owner===CLOUD.user.uid;
+  const mem=(CLOUD.members||[]).map(m=>`<div class="kv"><span>${esc(m)}${m===CLOUD.ownerEmail?' (owner)':''}${m===CLOUD.email?' · you':''}</span>${isOwner&&m!==CLOUD.ownerEmail&&m!==CLOUD.email?`<button class="link" data-a="shareRemove" data-e="${esc(m)}">Remove</button>`:'<b></b>'}</div>`).join('');
+  return `<div class="kv" style="margin-top:10px"><span>Signed in as</span><b>${esc(CLOUD.email)}</b></div><div class="kv"><span>Sync</span><b id="syncTxt">${SYNC_TXT[CLOUD.state]||''}</b></div><div class="field"><label class="lab">Who can open this tracker</label><div>${mem}</div>${isOwner?`<div class="catedit"><input class="input" id="shareEmail" type="email" inputmode="email" placeholder="Gmail address to share with" autocomplete="off"><button class="btn" data-a="shareAdd">Add</button></div><p class="errmsg" id="shareErr"></p>`:''}</div><button class="menuitem" data-a="gSignOut" style="margin-top:6px">Sign out</button>`;
+}
+cloudInit();
+
+render();
+</script>
+</body>
+</html>
