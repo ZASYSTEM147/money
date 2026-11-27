@@ -171,9 +171,27 @@ textarea.input{height:130px;padding:12px 14px;font-size:12px;font-family:ui-mono
 .gbtn:disabled{opacity:.6}
 .avatar{width:48px;height:48px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-weight:800;font-size:18px;flex:none}
 #repWrap:has(#endField[hidden]){grid-template-columns:1fr}
+#printArea{display:none}
+@media print{
+ @page{size:A4;margin:12mm}
+ html,body{height:auto!important;overflow:visible!important;background:#fff!important;color:#000!important}
+ body>*:not(#printArea){display:none!important}
+ #printArea{display:block!important;font:11px/1.35 Arial,Helvetica,sans-serif;color:#000}
+ #printArea h1{font-size:20px;margin:0 0 2px}#printArea h2{font-size:14px;margin:18px 0 6px;border-bottom:2px solid #000;padding-bottom:3px;break-after:avoid}
+ #printArea .sub{color:#444;margin:0 0 8px}
+ #printArea table{width:100%;border-collapse:collapse;margin:0 0 6px}
+ #printArea th{background:#e8e8e8;text-align:left;font-size:10px;text-transform:uppercase}
+ #printArea th,#printArea td{border:1px solid #999;padding:3px 5px;vertical-align:top}
+ #printArea td.n,#printArea th.n{text-align:right;white-space:nowrap}
+ #printArea thead{display:table-header-group}#printArea tr{break-inside:avoid}
+ #printArea tfoot td{font-weight:700;background:#f3f3f3}
+ #printArea .mh{font-weight:700;background:#f3f3f3}
+ #printArea .np{color:#b00020;font-weight:700}
+}
 </style>
 </head>
 <body>
+<div id="printArea"></div>
 <div class="app" id="app">
   <header class="top">
     <div class="top-row">
@@ -329,7 +347,7 @@ function homeView(){
 }
 function reportView(){
   const p=homeParts();if(typeof p==='string')return p;
-  return `<div class="stack">${p.chart}${p.spend}${p.act}</div>`;
+  return `<div class="stack">${p.chart}${p.spend}${p.act}<button class="btn ghost block" data-a="printSheet">Print A4 report</button></div>`;
 }
 function homeParts(){
   if(!records.length&&!schedules.length&&!debts.length&&!notes.length){
@@ -677,6 +695,34 @@ function catsSheet(msg){
   <div class="catedit" style="margin-top:16px"><input class="input" id="catNew" placeholder="New category"><button class="btn" data-a="catAdd2">Add</button></div>`);
 }
 function backupObj(){return{app:'ZZ & AZ TRACKER',formatVersion:1,exportedAt:new Date().toISOString(),records,schedules,debts,notes,scheduleDates:readJSON(K.dates,{}),categories,title}}
+function reportHtml(per,o){
+  const yr=S.month.slice(0,4),inP=d=>per==='year'?String(d).slice(0,4)===yr:mk(d)===S.month,months=per==='year'?Array.from({length:12},(_,i)=>yr+'-'+String(i+1).padStart(2,'0')):[S.month];
+  const own=r=>o==='Both'||r.owner===o,recs=records.filter(r=>inP(r.date)&&own(r)).sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.desc).localeCompare(String(b.desc)));
+  const dest=x=>x.toPerson||(x.owner==='ZZ'?'AZ':'ZZ'),td=(v,c)=>`<td${c?` class="${c}"`:''}>${v}</td>`;
+  const plabel=per==='year'?'Year '+yr:ml(S.month),acc=o==='Both'?'ZZ and AZ':o+' account';
+  // summary
+  const sumRows=months.map(m=>{const t=totals(monthRecs(m,o),m,o);return `<tr>${td(ml(m))}${td(money(t.salary),'n')}${td(money(t.otherInc),'n')}${td(money(t.expense),'n')}${td(money(t.into),'n')}${td(money(t.out),'n')}${td(money(t.net),'n')}</tr>`}).join('');
+  const T=months.reduce((a,m)=>{const t=totals(monthRecs(m,o),m,o);['salary','otherInc','expense','into','out','net'].forEach(k=>a[k]=(a[k]||0)+t[k]);return a},{});
+  const summary=`<h2>1. Summary</h2><table><thead><tr><th>Month</th><th class="n">Salary received</th><th class="n">Other income</th><th class="n">Expenses paid</th><th class="n">Transfer in</th><th class="n">Transfer out</th><th class="n">Left</th></tr></thead><tbody>${sumRows}</tbody>${months.length>1?`<tfoot><tr>${td('Total')}${['salary','otherInc','expense','into','out','net'].map(k=>td(money(T[k]||0),'n')).join('')}</tr></tfoot>`:''}</table><div class="sub">Only items you ticked as paid, received or sent are counted.</div>`;
+  // monthly payment plans
+  const plans=schedules.filter(x=>o==='Both'||x.owner===o||(x.category==='Transfer'&&dest(x)===o)).map(x=>{const all=Math.max(1,mDiff(x.startMonth,x.endMonth)+1)*(x.twice?2:1),isX=x.category==='Transfer',done=records.filter(r=>r.scheduleId===x.id&&(isX?r.type==='Transfer Out':true)&&r.paid).length,amt=Number(x.amount||0)*(x.twice?2:1);return `<tr>${td(esc(x.desc))}${td(isX?esc(x.owner)+' → '+esc(dest(x)):esc(x.owner))}${td(esc(x.category))}${td(money(amt),'n')}${td(x.open?'From '+ml(x.startMonth)+' · no end':ml(x.startMonth)+' to '+ml(x.endMonth))}${td(x.open?done+' done':done+' of '+all+' done','n')}</tr>`}).join('');
+  const planSec=`<h2>2. Monthly payments (plans)</h2>${plans?`<table><thead><tr><th>Description</th><th>Account</th><th>Type</th><th class="n">Per month</th><th>Period</th><th class="n">Progress</th></tr></thead><tbody>${plans}</tbody></table>`:'<div class="sub">None.</div>'}`;
+  // bills & payments by month (all scheduled expenses, paid or not)
+  const bills=recs.filter(r=>r.scheduleId&&r.type==='Expense');
+  const byM={};bills.forEach(r=>(byM[mk(r.date)]=byM[mk(r.date)]||[]).push(r));
+  const billRows=Object.keys(byM).sort().map(m=>{const it=byM[m],tot=it.reduce((a,r)=>a+Number(r.amount||0),0),paid=it.filter(r=>r.paid).reduce((a,r)=>a+Number(r.amount||0),0);return `<tr class="mh"><td colspan="6">${ml(m)} · total ${money(tot)} · paid ${money(paid)} · still to pay ${money(tot-paid)}</td></tr>`+it.map(r=>`<tr>${td('☐ '.replace('☐',r.paid?'☑':'☐')+' '+esc(r.desc))}${td(esc(r.category))}${td(esc(r.owner))}${td(esc(r.date))}${td(money(r.amount),'n')}${td(r.paid?'Paid':'<span class="np">NOT PAID</span>')}</tr>`).join('')}).join('');
+  const billSec=`<h2>3. Bills and payments</h2>${bills.length?`<table><thead><tr><th>Bill / payment</th><th>Type</th><th>Account</th><th>Due date</th><th class="n">Amount</th><th>Status</th></tr></thead><tbody>${billRows}</tbody></table>`:'<div class="sub">No bills in this period.</div>'}`;
+  // all expenses
+  const exp=recs.filter(r=>r.type==='Expense'&&counted(r)),expTot=exp.reduce((a,r)=>a+Number(r.amount||0),0);
+  const expSec=`<h2>4. All expenses paid</h2>${exp.length?`<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Account</th><th>Paid by</th><th class="n">Amount</th></tr></thead><tbody>${exp.map(r=>`<tr>${td(esc(r.date))}${td(esc(r.desc))}${td(esc(r.category))}${td(esc(r.owner))}${td(esc(r.paymentMethod||''))}${td(money(r.amount),'n')}</tr>`).join('')}</tbody><tfoot><tr><td colspan="5">Total expenses (${exp.length})</td>${td(money(expTot),'n')}</tr></tfoot></table>`:'<div class="sub">No expenses paid in this period.</div>'}`;
+  // income & transfers
+  const inc=recs.filter(r=>r.type!=='Expense'&&counted(r));
+  const incSec=`<h2>5. Income and transfers</h2>${inc.length?`<table><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Account</th><th class="n">Amount</th></tr></thead><tbody>${inc.map(r=>{const out=r.type==='Transfer Out';return `<tr>${td(esc(r.date))}${td(esc(r.desc))}${td(esc(r.type==='Transfer Out'?'Transfer to '+dest(r):r.type))}${td(esc(r.owner))}${td((out?'−':'+')+money(r.amount),'n')}</tr>`}).join('')}</tbody></table>`:'<div class="sub">None.</div>'}`;
+  // debts
+  const ds=debts.filter(d=>o==='Both'||d.owner===o).map(d=>({d,st:dStat(d)}));
+  const debtSec=`<h2>6. Debts</h2>${ds.length?`<table><thead><tr><th>Person</th><th>Item</th><th>Account</th><th>Type</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Left</th></tr></thead><tbody>${ds.map(({d,st})=>`<tr>${td(esc(d.person))}${td(esc(d.item||''))}${td(esc(d.owner))}${td(d.dir==='owed'?'Owes me':'I owe')}${td(money(st.total),'n')}${td(money(st.paid),'n')}${td(money(st.left),'n')}</tr>`).join('')}</tbody></table>`:'<div class="sub">None.</div>'}`;
+  return `<h1>ZA Tracker report</h1><div class="sub">${esc(plabel)} · ${esc(acc)} · printed ${esc(todayStr())}</div>${summary}${planSec}${billSec}${expSec}${incSec}${debtSec}`;
+}
 function exportSheet(){
   const txt=JSON.stringify(backupObj(),null,2);
   openSheet(`<h3>Back up my data</h3><p class="muted" style="font-size:14px;margin:6px 0 0">Save this file somewhere safe (Files, email to yourself). You can restore it here at any time, even on a new phone.</p>
@@ -743,6 +789,12 @@ const A={
   spendAll(){S.view='act';S.type='Expense';S.all=false;S.cat=null;S.q='';window.scrollTo(0,0);render()},
   listFmt(d){listFmt(d.t,d.k)},
   debtDir(d){S.debtDir=d.v;render()},payEdit(d){paySheet(d.id,d.pid)},
+  printSheet(){
+    const per=[['month',ml(S.month)],['year','Whole year '+S.month.slice(0,4)]];
+    openSheet(`<h3>Print report (A4)</h3><div class="muted">Bills, monthly payments, all expenses, income and transfers in a page layout made for paper.</div><div class="field"><label class="lab">Period</label>${segHtml('rPer',per,'month')}</div><div class="field"><label class="lab">Account</label>${segHtml('rOwn',[['ZZ','ZZ'],['AZ','AZ'],['Both','Both']],S.owner)}</div><div class="btns"><button class="btn block" data-a="printGo">Open A4 report</button></div><p class="muted" style="margin-top:10px">In the print screen, choose <b>Save as PDF</b> (paper size A4) or send it straight to a printer.</p>`)},
+  printGo(){
+    const per=(qsa('[data-seg="rPer"] button.on')[0]||{dataset:{v:'month'}}).dataset.v,own=(qsa('[data-seg="rOwn"] button.on')[0]||{dataset:{v:S.owner}}).dataset.v;
+    $('printArea').innerHTML=reportHtml(per,own);closeSheet&&closeSheet();setTimeout(()=>window.print(),300)},
   otherIncome(){
     const m=S.month,o=S.owner,items=[];
     records.forEach(r=>{if(r.type==='Income'&&!r.scheduleId&&mk(r.date)===m&&(o==='Both'||r.owner===o))items.push({title:r.desc,sub:(r.category||'Income')+' · '+r.owner+' · '+r.date,amt:Number(r.amount)||0,date:r.date})});
@@ -950,7 +1002,7 @@ function accountView(){
     body=`<div class="card"><div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini)}</span><div style="min-width:0"><div class="rtitle">${esc(nm)}</div><div class="rsub">${esc(CLOUD.email)}</div></div></div><div class="kv" style="margin-top:12px"><span>Sync</span><b id="syncTxt">${SYNC_TXT[CLOUD.state]||''}</b></div><div class="btns"><button class="btn danger block" data-a="signOutAsk">Sign out</button></div></div>
     <section><div class="h"><h2>Who can open this tracker</h2></div><div class="card">${mem}${isOwner?`<div class="catedit"><input class="input" id="shareEmail" type="email" inputmode="email" placeholder="Gmail address to let in" autocomplete="off"><button class="btn" data-a="shareAdd">Add</button></div><p class="errmsg" id="shareErr"></p>`:'<div class="muted" style="padding-top:8px">Only '+OWNER_EMAIL+' can add or remove people.</div>'}</div></section>`;
   }
-  return `<div class="stack">${body}<div class="card list" style="padding:0 16px"><button class="menuitem" data-a="settings">Settings ${ic('right',18)}</button><button class="menuitem" data-a="exportSheet">Back up my data ${ic('right',18)}</button></div></div>`;
+  return `<div class="stack">${body}<div class="card list" style="padding:0 16px"><button class="menuitem" data-a="printSheet">Print A4 report ${ic('right',18)}</button><button class="menuitem" data-a="settings">Settings ${ic('right',18)}</button><button class="menuitem" data-a="exportSheet">Back up my data ${ic('right',18)}</button></div></div>`;
 }
 function cloudBlock(){
   if(!cfgOk)return '<div class="note">Cloud sync is not set up in this copy yet, so records stay on this phone only.</div>';
