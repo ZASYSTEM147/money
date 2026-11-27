@@ -228,7 +228,7 @@ const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random(
 const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}};
 
 /* ---------- storage (same keys as the original tracker, so old data and backups still work) ---------- */
-const K={rec:'zzaz_money_manager_v3',sch:'zzaz_all_schedules_v1',dates:'zzaz_schedule_dates_v1',debt:'zzaz_personal_debts_v1',cat:'zzaz_custom_categories_v1',title:'zzaz_tracker_title_v1'};
+const K={notes:'zzaz_notes_v1',rec:'zzaz_money_manager_v3',sch:'zzaz_all_schedules_v1',dates:'zzaz_schedule_dates_v1',debt:'zzaz_personal_debts_v1',cat:'zzaz_custom_categories_v1',title:'zzaz_tracker_title_v1'};
 const readJSON=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v??d}catch(e){return d}};
 const writeRaw=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const BASE_CATS=['Loan','Installment','Bill','Subscription','Vehicle','Commitment','Utilities','Family','Cash','Cash withdrawal','Appliance','Salary','Other'];
@@ -236,6 +236,7 @@ const LOCKED=['Loan','Installment','Bill','Subscription','Salary'];
 let records=readJSON(K.rec,[]);if(!Array.isArray(records))records=[];
 let schedules=readJSON(K.sch,[]);if(!Array.isArray(schedules))schedules=[];
 let debts=readJSON(K.debt,[]);if(!Array.isArray(debts))debts=[];
+let notes=readJSON(K.notes,[]);if(!Array.isArray(notes))notes=[];
 let categories=readJSON(K.cat,null);
 categories=Array.isArray(categories)?categories.filter(c=>typeof c==='string'&&c.trim()):BASE_CATS.slice();
 LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
@@ -243,7 +244,7 @@ LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
 let title=(()=>{try{return localStorage.getItem(K.title)||'ZZ & AZ Tracker'}catch(e){return'ZZ & AZ Tracker'}})();
 function persist(){
   if(typeof cloudDirty==='function')cloudDirty();
-  writeRaw(K.rec,JSON.stringify(records));writeRaw(K.sch,JSON.stringify(schedules));writeRaw(K.debt,JSON.stringify(debts));writeRaw(K.cat,JSON.stringify(categories));
+  writeRaw(K.notes,JSON.stringify(notes));writeRaw(K.rec,JSON.stringify(records));writeRaw(K.sch,JSON.stringify(schedules));writeRaw(K.debt,JSON.stringify(debts));writeRaw(K.cat,JSON.stringify(categories));
   writeRaw(K.dates,JSON.stringify(Object.fromEntries(schedules.map(x=>[x.id,{startMonth:x.startMonth,endMonth:x.endMonth,startLabel:x.startLabel,endLabel:x.endLabel}]))));
 }
 
@@ -280,7 +281,7 @@ const schedOwner=sc=>S.owner==='Both'||sc.owner===S.owner;
 
 /* ---------- undo + toast ---------- */
 let snap=null,toastTimer=null;
-const snapshot=()=>{snap=JSON.stringify({records,schedules,debts,categories})};
+const snapshot=()=>{snap=JSON.stringify({records,schedules,debts,categories,notes})};
 function toast(msg,undo){$('toastMsg').textContent=msg;$('undoBtn').hidden=!undo;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),undo?5500:2400)}
 function commit(){persist();render()}
 
@@ -306,7 +307,7 @@ function txRow(r,opts={}){
   return `<button class="row" data-a="txOpen" data-id="${esc(r.id)}"><span class="badge ${k}">${ic(k==='income'?'up':k==='expense'?'down':'swap',19)}</span><span class="rmain"><span class="rtitle">${esc(r.desc)}</span><span class="rsub">${esc(sub)}${opts.date?' · '+esc(r.date):''}</span></span><span class="ramt ${amtCls}">${sign}${money(r.amount)}</span></button>`;
 }
 function homeView(){
-  if(!records.length&&!schedules.length&&!debts.length){
+  if(!records.length&&!schedules.length&&!debts.length&&!notes.length){
     return `<div class="card empty"><b>Welcome</b>Add your first salary, bill or spending. Everything stays on this phone.<div class="btns"><button class="btn block" data-a="add">${ic('plus',18)} Add first transaction</button><button class="btn ghost block" data-a="importSheet">Import a backup</button></div></div>`;
   }
   const list=monthRecs(S.month),t=totals(list),xfer=t.into-t.out,flowIn=t.income,flowOut=t.expense;
@@ -327,7 +328,7 @@ function homeView(){
   const spend=cats.length?`<section><div class="h"><h2>Where it went</h2><span class="muted">Tap to see items</span></div><div class="card">${cats.map(([c,v])=>`<button class="catrow" data-a="catFilter" data-v="${esc(c)}"><div class="top2"><span>${esc(c)}</span><span>${money(v)}</span></div><div class="bar"><i style="width:${v/top*100}%"></i></div></button>`).join('')}</div></section>`:'';
   const recent=list.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
   const act=`<section><div class="h"><h2>Recent activity</h2><button class="link" data-a="view" data-v="act">See all</button></div><div class="card list">${recent.map(r=>txRow(r)).join('')||'<div class="empty">Nothing this month yet.</div>'}</div></section>`;
-  return `<div class="stack">${hero}${chart}${acc}${bills}${spend}${act}</div>`;
+  return `<div class="stack">${hero}${noteBoard()}${chart}${acc}${bills}${spend}${act}</div>`;
 }
 function fmtDate(d){return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
 function billRow(r){
@@ -502,6 +503,29 @@ function schedSheet(id){
    <div class="btns"><button class="btn block" type="submit">Save</button><button type="button" class="btn danger block" data-a="schedDelete" data-id="${esc(id)}">Delete this bill</button></div>
   </form>`);
 }
+const nDays=d=>Math.round((new Date(d+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+const nDate=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+const myName=()=>{const e=(typeof CLOUD!=='undefined'&&CLOUD&&CLOUD.email)||'';return e?e.split('@')[0]:''};
+function noteBoard(){
+  const open=notes.filter(n=>!n.done).sort((a,b)=>(a.date||'9999-99-99').localeCompare(b.date||'9999-99-99')||(b.created||'').localeCompare(a.created||''));
+  const done=notes.filter(n=>n.done).sort((a,b)=>(b.doneAt||'').localeCompare(a.doneAt||''));
+  const shown=[...open,...(S.notesDone?done:[])];
+  const row=n=>{const k=n.date?nDays(n.date):null;let due='';
+    if(n.date&&!n.done){due=k<0?`<span class="rsub" style="color:var(--out);font-weight:700">Overdue · ${nDate(n.date)}</span>`:k===0?`<span class="rsub" style="color:#c98a0a;font-weight:700">Today</span>`:`<span class="rsub">Remind ${k===1?'tomorrow':nDate(n.date)}</span>`}
+    else if(n.date)due=`<span class="rsub">${nDate(n.date)}</span>`;
+    return `<div class="row" style="align-items:flex-start"><button class="tap" data-a="noteToggle" data-id="${esc(n.id)}" aria-label="${n.done?'Mark not done':'Mark done'}"><span class="check ${n.done?'on':''}">${ic('check',16)}</span></button><button class="rmain" style="text-align:left" data-a="noteOpen" data-id="${esc(n.id)}"><span class="rtitle" style="white-space:pre-wrap;font-weight:600;${n.done?'text-decoration:line-through;opacity:.6':''}">${esc(n.text)}</span>${due}<span class="rsub">${n.by?esc(n.by)+' · ':''}${esc((n.created||'').slice(0,10))}</span></button></div>`};
+  return `<section><div class="h"><h2>Notice board</h2><button class="link" data-a="noteAdd">＋ Add note</button></div><div class="card list">${shown.length?shown.map(row).join(''):'<div class="empty" style="padding:14px 8px">No notes yet. Add a reminder that both of you can see.</div>'}${done.length?`<button class="link" style="padding-top:10px;text-align:left" data-a="noteDone">${S.notesDone?'Hide':'Show'} ${done.length} done</button>`:''}</div></section>`;
+}
+function noteSheet(id){
+  const n=id?notes.find(x=>x.id===id):null;
+  openSheet(`<h3>${n?'Edit note':'New note'}</h3><div class="muted">Everyone who can open this tracker sees it on the Home page</div>
+  <form data-form="note" data-id="${esc(id||'')}" novalidate>
+   <div class="field"><label for="nText">Note</label><textarea class="input" id="nText" style="height:110px;padding:12px 14px;resize:none;font-family:inherit;font-size:15px" placeholder="e.g. Pay the car loan on Friday">${n?esc(n.text):''}</textarea></div>
+   <div class="field"><label for="nDate">Remind on (optional)</label><div class="catedit" style="margin-top:0"><input class="input" id="nDate" type="date" value="${n&&n.date?esc(n.date):''}"><button type="button" class="btn ghost" data-a="noteClearDate">Clear</button></div></div>
+   <p class="errmsg" id="err" role="alert"></p>
+   <div class="btns"><button class="btn block" type="submit">${n?'Save changes':'Save note'}</button>${n?`<button type="button" class="btn danger block" data-a="noteDel" data-id="${esc(id)}">Delete</button>`:''}</div>
+  </form>`,()=>{if(!n)setTimeout(()=>{const a=$('nText');a&&a.focus()},300)});
+}
 function debtSheet(id){
   const d=id?debts.find(x=>x.id===id):null;
   openSheet(`<h3>${d?'Edit debt':'Add debt'}</h3><div class="muted">Money you owe to someone</div>
@@ -537,7 +561,7 @@ function catsSheet(msg){
   <div style="margin-top:6px">${categories.map((c,i)=>LOCKED.includes(c)?`<div class="catedit"><div class="input" style="display:flex;align-items:center;background:var(--soft)">${esc(c)}</div></div>`:`<div class="catedit"><input class="input" data-cat="${i}" value="${esc(c)}"><button class="btn ghost" data-a="catRename" data-i="${i}">Save</button><button class="btn danger" data-a="catDelete" data-i="${i}" aria-label="Delete ${esc(c)}">${ic('x',16)}</button></div>`).join('')}</div>
   <div class="catedit" style="margin-top:16px"><input class="input" id="catNew" placeholder="New category"><button class="btn" data-a="catAdd2">Add</button></div>`);
 }
-function backupObj(){return{app:'ZZ & AZ TRACKER',formatVersion:1,exportedAt:new Date().toISOString(),records,schedules,debts,scheduleDates:readJSON(K.dates,{}),categories,title}}
+function backupObj(){return{app:'ZZ & AZ TRACKER',formatVersion:1,exportedAt:new Date().toISOString(),records,schedules,debts,notes,scheduleDates:readJSON(K.dates,{}),categories,title}}
 function exportSheet(){
   const txt=JSON.stringify(backupObj(),null,2);
   openSheet(`<h3>Back up my data</h3><p class="muted" style="font-size:14px;margin:6px 0 0">Save this file somewhere safe (Files, email to yourself). You can restore it here at any time, even on a new phone.</p>
@@ -554,7 +578,7 @@ function runImport(text){
   let data;try{data=JSON.parse(String(text||''))}catch(e){data=null}
   if(!data||data.app!=='ZZ & AZ TRACKER'||!Array.isArray(data.records)||!Array.isArray(data.schedules)||!Array.isArray(data.debts)){const e=$('err');if(e)e.textContent='This is not a ZZ & AZ Tracker backup.';return}
   confirmSheet('Replace current data?',`This backup has ${data.records.length} records, ${data.schedules.length} bills and ${data.debts.length} debts. It will replace everything on this phone.`,'Restore',()=>{
-    snapshot();records=data.records;schedules=data.schedules;debts=data.debts;
+    snapshot();records=data.records;schedules=data.schedules;debts=data.debts;notes=Array.isArray(data.notes)?data.notes:[];
     if(Array.isArray(data.categories)&&data.categories.length)categories=data.categories.filter(c=>typeof c==='string'&&c.trim());
     LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
     if(typeof data.title==='string'&&data.title.trim()){title=data.title.trim();writeRaw(K.title,title)}
@@ -600,10 +624,13 @@ const A={
   schedDelete(d){const s=schedules.find(x=>x.id===d.id);if(!s)return;confirmSheet('Delete this bill?',`“${s.desc}” and all its monthly payments will be removed.`,'Delete',()=>{snapshot();schedules=schedules.filter(x=>x.id!==s.id);records=records.filter(r=>r.scheduleId!==s.id);commit();toast('Bill deleted',true)})},
   debtOpen(d){debtDetail(d.id)},
   debtEdit(d){debtSheet(d.id)},
+  noteAdd(){noteSheet()},noteOpen(d){noteSheet(d.id)},noteDone(){S.notesDone=!S.notesDone;render()},noteClearDate(){$('nDate').value=''},
+  noteToggle(d){const n=notes.find(x=>x.id===d.id);if(!n)return;n.done=!n.done;n.doneAt=n.done?new Date().toISOString():'';buzz();commit()},
+  noteDel(d){const n=notes.find(x=>x.id===d.id);if(!n)return;snapshot();notes=notes.filter(x=>x.id!==d.id);closeSheet();commit();toast('Note deleted',true)},
   payDel(d){const x=debts.find(y=>y.id===d.id);if(!x)return;ensurePay(x);snapshot();x.payments=x.payments.filter(p=>p.id!==d.pid);syncDebtStatus(x);commit();debtDetail(d.id);toast('Payment removed',true)},
   togglePaidDebt(d){const x=debts.find(y=>y.id===d.id);if(!x)return;x.status=x.status==='paid'?'unpaid':'paid';buzz();commit()},
   debtDelete(d){const x=debts.find(y=>y.id===d.id);if(!x)return;snapshot();debts=debts.filter(y=>y.id!==d.id);closeSheet();commit();toast('Debt deleted',true)},
-  undo(){if(!snap)return;const o=JSON.parse(snap);records=o.records;schedules=o.schedules;debts=o.debts;categories=o.categories;snap=null;$('toast').classList.remove('show');closeSheet();commit()},
+  undo(){if(!snap)return;const o=JSON.parse(snap);records=o.records;schedules=o.schedules;debts=o.debts;categories=o.categories;notes=o.notes||notes;snap=null;$('toast').classList.remove('show');closeSheet();commit()},
   settings(){settingsSheet()},
   async gSignIn(){const f=CLOUD.fb;if(!f){cloudInit();return}gateBusy(true,'Opening Google…');
     try{if(f.auth.currentUser){await onSignedIn(f.auth.currentUser);return}await f.authM.signInWithPopup(f.auth,new f.authM.GoogleAuthProvider())}
@@ -612,7 +639,7 @@ const A={
   goAccount(){closeSheet();S.view='acct';window.scrollTo(0,0);render()},
   signOutAsk(){confirmSheet('Sign out?','Your records stay safe in the cloud and come back when you sign in again. They will be removed from this phone until then.','Sign out',()=>A.gSignOut())},
   async gSignOut(){const f=CLOUD.fb;if(!f)return;await cloudFlush();if(CLOUD.unsub){CLOUD.unsub();CLOUD.unsub=null}CLOUD.ref=null;
-    CLOUD.applying=true;records=[];schedules=[];debts=[];categories=BASE_CATS.slice();persist();CLOUD.applying=false;try{localStorage.removeItem('zzaz_cloud_dirty')}catch(e){}
+    CLOUD.applying=true;records=[];schedules=[];debts=[];notes=[];categories=BASE_CATS.slice();persist();CLOUD.applying=false;try{localStorage.removeItem('zzaz_cloud_dirty')}catch(e){}
     closeSheet();S.view='home';render();try{await f.authM.signOut(f.auth)}catch(e){toast('Could not sign out')}},
   async shareAdd(){const el=$('shareEmail'),er=$('shareErr');const em=(el.value||'').trim().toLowerCase();er.textContent='';
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){er.textContent='Enter a full email address.';return}
@@ -628,7 +655,7 @@ const A={
   async saveFile(){const name='ZZ_AZ_TRACKER_Backup_'+todayStr()+'.json',data=JSON.stringify(backupObj(),null,2);try{if(typeof claude!=='undefined'&&claude.use){const dl=await claude.use('downloads');if(!dl)throw 0;await dl.save({filename:name,data})}else{const u=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}toast('Backup saved')}catch(e){const el=$('err');if(el)el.textContent=(e&&e.code==='declined')?'Save cancelled.':'Saving files is not available here. Use “Copy as text” and paste it into Notes or an email.'}},
   async copyBackup(){const t=$('bk');try{await navigator.clipboard.writeText(t.value);toast('Copied')}catch(e){t.select();try{document.execCommand('copy');toast('Copied')}catch(_){$('err').textContent='Press and hold the text to copy it.'}}},
   importPaste(){runImport($('impText').value)},
-  eraseAsk(){confirmSheet('Erase everything?','All transactions, bills and debts will be removed'+(CLOUD&&CLOUD.ref?' from the cloud and from every phone that uses this tracker':' on this phone')+'. Make a backup first if you might need them.','Erase all',()=>{snapshot();records=[];schedules=[];debts=[];commit();toast('All data erased',true)})}
+  eraseAsk(){confirmSheet('Erase everything?','All transactions, bills and debts will be removed'+(CLOUD&&CLOUD.ref?' from the cloud and from every phone that uses this tracker':' on this phone')+'. Make a backup first if you might need them.','Erase all',()=>{snapshot();records=[];schedules=[];debts=[];notes=[];commit();toast('All data erased',true)})}
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t||!A[t.dataset.a])return;A[t.dataset.a](t.dataset,t,e)});
 document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;renderActList()}});
@@ -649,6 +676,8 @@ document.addEventListener('submit',e=>{
     if(!(data.amount>0))return err.textContent='Enter an amount above 0.';if(!data.person)return err.textContent='Who do you owe?';if(!data.item)return err.textContent='What is it for?';if(!data.date)return err.textContent='Choose a date.';
     if(id){const d=debts.find(x=>x.id===id);if(d){const st=dStat(d);if(data.amount<st.paid-0.005)return err.textContent='The total cannot be less than the '+money(st.paid)+' you already paid.';snapshot();Object.assign(d,data);syncDebtStatus(d);closeSheet();commit();toast('Debt saved',true)}}
     else{const pre=Number(($('dPaidNow')||{}).value||0);if(pre<0||pre>data.amount+0.005)return err.textContent='Already paid cannot be more than the total.';snapshot();const nd={id:uid(),status:'unpaid',payments:[],...data};if(pre>0)nd.payments.push({id:uid(),date:data.date,amount:Math.round(pre*100)/100,note:'Paid before adding'});syncDebtStatus(nd);debts.push(nd);closeSheet();commit();toast('Debt saved',true)}}
+  else if(f==='note'){const id=e.target.dataset.id,text=$('nText').value.trim(),date=$('nDate').value,err=$('err');if(!text)return err.textContent='Write something first.';
+    snapshot();if(id){const n=notes.find(x=>x.id===id);if(n){n.text=text;n.date=date||''}}else notes.push({id:uid(),text,date:date||'',done:false,by:myName(),created:new Date().toISOString()});closeSheet();commit();toast('Note saved',true)}
   else if(f==='pay'){const id=e.target.dataset.id,d=debts.find(x=>x.id===id),er=$('perr');if(!d)return;const st=dStat(d),amt=Number($('pAmt').value),date=$('pDate').value,note=$('pNote').value.trim();
     if(!(amt>0))return er.textContent='Enter the amount you paid.';if(amt>st.left+0.005)return er.textContent='Only '+money(st.left)+' is left to pay.';if(!date)return er.textContent='Choose the date you paid.';
     snapshot();d.payments.push({id:uid(),date,amount:Math.round(amt*100)/100,note});syncDebtStatus(d);commit();debtDetail(id);const l=Math.max(0,st.left-amt);toast(l<0.005?'Fully paid':'Saved. '+money(l)+' left',true)}
@@ -675,12 +704,12 @@ const cfg=window.FIREBASE_CONFIG;
 const cfgOk=!!(cfg&&cfg.apiKey&&!String(cfg.apiKey).startsWith('PASTE'));
 const SYNC_TXT={local:'This phone only',saving:'Saving…',synced:'Synced',offline:'Offline, will sync when back online',error:'Sync problem'};
 function setSync(st){CLOUD.state=st;const d=$('syncDot');if(d){d.className='sync '+st;d.title=SYNC_TXT[st]||''}const t=$('syncTxt');if(t)t.textContent=SYNC_TXT[st]||''}
-const payloadObj=()=>({records,schedules,debts,categories,title});
+const payloadObj=()=>({records,schedules,debts,notes,categories,title});
 const payloadStr=()=>JSON.stringify(payloadObj());
 function parsePayload(str){try{const p=JSON.parse(str);if(p&&Array.isArray(p.records)&&Array.isArray(p.schedules)&&Array.isArray(p.debts))return p}catch(e){}return null}
-const hasData=p=>!!p&&(p.records.length||p.schedules.length||p.debts.length);
+const hasData=p=>!!p&&(p.records.length||p.schedules.length||p.debts.length||(p.notes&&p.notes.length));
 function applyRemote(p){
-  CLOUD.applying=true;records=p.records;schedules=p.schedules;debts=p.debts;
+  CLOUD.applying=true;records=p.records;schedules=p.schedules;debts=p.debts;notes=Array.isArray(p.notes)?p.notes:[];
   if(Array.isArray(p.categories)&&p.categories.length)categories=p.categories.filter(c=>typeof c==='string'&&c.trim());
   LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
   [...records,...schedules].forEach(x=>{if(x.category&&x.category!=='Transfer'&&!categories.includes(x.category))categories.push(x.category)});
@@ -727,7 +756,7 @@ async function attach(u){
   const noAccess=()=>{const er=new Error('noaccess');er.noAccess=true;er.email=email;return er};
   let snap;
   try{snap=await fsM.getDoc(ref)}catch(e){if(e.code==='permission-denied')throw noAccess();throw e}
-  const localHas=!!(records.length||schedules.length||debts.length);
+  const localHas=!!(records.length||schedules.length||debts.length||notes.length);
   let unsynced=false;try{unsynced=localStorage.getItem('zzaz_cloud_dirty')==='1'}catch(e){}
   if(!snap.exists()){
     if(!isOwner)throw noAccess();
