@@ -202,7 +202,7 @@ textarea.input{height:130px;padding:12px 14px;font-size:12px;font-family:ui-mono
   <div class="gate-card">
     <div class="gate-logo">Z+A</div>
     <h1 id="gateTitle">ZZ &amp; AZ Tracker</h1>
-    <p id="gateMsg" class="muted">Sign in with Google to open your tracker.</p>
+    <p id="gateMsg" class="muted">Sign in with Google. Only people added by the owner can open this tracker.</p>
     <button class="btn block gbtn" id="gBtn" data-a="gSignIn" disabled><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg> Sign in with Google</button>
     <button class="btn ghost block" id="gLocal" data-a="gLocal" hidden style="margin-top:10px">Use on this phone only</button>
     <p class="errmsg" id="gErr" role="alert"></p>
@@ -669,7 +669,7 @@ function friendlyErr(e){const c=e&&e.code||'';
   if(c==='permission-denied')return 'No permission to open the data. Publish the Firestore rules from firestore.rules in Firebase.';
   return (e&&e.message)||'Something went wrong. Try again.'}
 function gateBusy(on,msg){$('gBtn').disabled=!!on;if(msg)$('gateMsg').textContent=msg;$('gErr').textContent=''}
-function gateFail(msg){$('gBtn').disabled=false;$('gLocal').hidden=false;$('gateMsg').textContent='Sign in with Google to open your tracker.';$('gErr').textContent=msg}
+function gateFail(msg){$('gBtn').disabled=false;$('gLocal').hidden=false;$('gateMsg').textContent='Sign in with Google. Only people added by the owner can open this tracker.';$('gErr').textContent=msg}
 async function cloudInit(){
   if(!cfgOk){setSync('local');return}
   $('gateTitle').textContent=title;$('gate').hidden=false;gateBusy(true,'Checking sign-in…');
@@ -686,36 +686,42 @@ async function cloudInit(){
 }
 function onSignedOut(){
   if(CLOUD.unsub){CLOUD.unsub();CLOUD.unsub=null}CLOUD.ref=null;CLOUD.user=null;if(CLOUD.localOnly)return;
-  setSync('local');$('gateTitle').textContent=title;$('gate').hidden=false;gateBusy(false,'Sign in with Google to open your tracker. Your records sync across your phones.');render();
+  setSync('local');$('gateTitle').textContent=title;$('gate').hidden=false;gateBusy(false,'Sign in with Google. Only people added by the owner can open this tracker.');render();
 }
 async function onSignedIn(u){
   const wasHidden=$('gate').hidden;CLOUD.localOnly=false;gateBusy(true,'Opening your tracker…');
-  try{await attach(u);$('gate').hidden=true;$('gLocal').hidden=true;render();if(wasHidden)toast('Signed in as '+(u.email||''))}catch(e){console.error(e);gateFail(friendlyErr(e));if(wasHidden)toast(friendlyErr(e))}
+  try{await attach(u);$('gate').hidden=true;$('gLocal').hidden=true;render();if(wasHidden)toast('Signed in as '+(u.email||''))}catch(e){console.error(e);
+    if(e.noAccess){const msg='No access for '+(e.email||'this account')+'. Ask '+OWNER_EMAIL+' to add your Gmail, then sign in again.';CLOUD.ref=null;try{await CLOUD.fb.authM.signOut(CLOUD.fb.auth)}catch(_){}setTimeout(()=>{$('gate').hidden=false;gateFail(msg)},120);if(wasHidden)toast('No access for '+(e.email||'this account'));return}
+    gateFail(friendlyErr(e));if(wasHidden)toast(friendlyErr(e))}
 }
+const OWNER_EMAIL='zulfa37z@gmail.com',TRACKER_ID='main';
 async function attach(u){
   const {db,fsM}=CLOUD.fb;const email=(u.email||'').toLowerCase();CLOUD.user=u;CLOUD.email=email;
   if(CLOUD.unsub){CLOUD.unsub();CLOUD.unsub=null}
-  const snap=await fsM.getDocs(fsM.query(fsM.collection(db,'trackers'),fsM.where('members','array-contains',email)));
-  const score=d=>(hasData(parsePayload(d.data().payload))?2:0)+(d.data().owner===u.uid?1:0);
-  const d=snap.docs.slice().sort((a,b)=>score(b)-score(a))[0];
+  const ref=fsM.doc(db,'trackers',TRACKER_ID),isOwner=email===OWNER_EMAIL;
+  const noAccess=()=>{const er=new Error('noaccess');er.noAccess=true;er.email=email;return er};
+  let snap;
+  try{snap=await fsM.getDoc(ref)}catch(e){if(e.code==='permission-denied')throw noAccess();throw e}
   const localHas=!!(records.length||schedules.length||debts.length);
   let unsynced=false;try{unsynced=localStorage.getItem('zzaz_cloud_dirty')==='1'}catch(e){}
-  if(!d){
-    CLOUD.ref=await fsM.addDoc(fsM.collection(db,'trackers'),{owner:u.uid,ownerEmail:email,members:[email],payload:payloadStr(),clientId:CLOUD.clientId,updatedBy:email,updatedAt:fsM.serverTimestamp()});
+  if(!snap.exists()){
+    if(!isOwner)throw noAccess();
+    try{await fsM.setDoc(ref,{owner:u.uid,ownerEmail:OWNER_EMAIL,members:[OWNER_EMAIL],payload:payloadStr(),clientId:CLOUD.clientId,updatedBy:email,updatedAt:fsM.serverTimestamp()})}
+    catch(e){if(e.code==='permission-denied')throw noAccess();throw e}
   }else{
-    CLOUD.ref=d.ref;const data=d.data(),p=parsePayload(data.payload);
+    const data=snap.data(),p=parsePayload(data.payload);
     if(hasData(p)&&!(unsynced&&localHas)){
       if(localHas&&payloadStr()!==data.payload)writeRaw('zzaz_local_backup_before_cloud',payloadStr());
       applyRemote(p);
     }else if(localHas){
-      await fsM.updateDoc(CLOUD.ref,{payload:payloadStr(),clientId:CLOUD.clientId,updatedBy:email,updatedAt:fsM.serverTimestamp()});
+      await fsM.updateDoc(ref,{payload:payloadStr(),clientId:CLOUD.clientId,updatedBy:email,updatedAt:fsM.serverTimestamp()});
       try{localStorage.removeItem('zzaz_cloud_dirty')}catch(e){}
     }
   }
-  CLOUD.dirty=false;setSync('synced');
-  CLOUD.unsub=fsM.onSnapshot(CLOUD.ref,s=>{
+  CLOUD.ref=ref;CLOUD.dirty=false;setSync('synced');
+  CLOUD.unsub=fsM.onSnapshot(ref,s=>{
     if(!s.exists()){gateFail('This tracker no longer exists.');$('gate').hidden=false;return}
-    const x=s.data();CLOUD.owner=x.owner;CLOUD.ownerEmail=x.ownerEmail||'';CLOUD.members=x.members||[];if(S.view==='acct'&&!(document.activeElement&&document.activeElement.id==='shareEmail'))render();
+    const x=s.data();CLOUD.owner=x.owner;CLOUD.ownerEmail=x.ownerEmail||OWNER_EMAIL;CLOUD.members=x.members||[];if(S.view==='acct'&&!(document.activeElement&&document.activeElement.id==='shareEmail'))render();
     if(s.metadata&&s.metadata.hasPendingWrites){setSync('saving');return}
     setSync(s.metadata&&s.metadata.fromCache&&!navigator.onLine?'offline':'synced');
     if(x.clientId!==CLOUD.clientId&&!CLOUD.dirty){const p=parsePayload(x.payload);if(p&&payloadStr()!==x.payload)applyRemote(p)}
@@ -743,10 +749,10 @@ function accountView(){
   if(!cfgOk){body='<div class="card empty"><b>Cloud sync is not set up</b>Add your Firebase settings in firebase-config.js to turn on Google sign-in.</div>'}
   else if(!CLOUD.ref){body=`<div class="card" style="text-align:center"><span class="avatar" style="margin:0 auto 12px">${ic('user',24)}</span><h2 style="margin:0 0 6px;font-size:18px">Not signed in</h2><p class="muted" style="margin:0 0 16px">Records are on this phone only. Sign in with Google to save them in the cloud and open them on other phones.</p><button class="btn block gbtn" data-a="gSignIn">${gsvg} Sign in with Google</button></div>`}
   else{
-    const u=CLOUD.user||{},nm=u.displayName||CLOUD.email,ini=(nm||'?').trim().charAt(0).toUpperCase(),isOwner=CLOUD.owner===u.uid;
+    const u=CLOUD.user||{},nm=u.displayName||CLOUD.email,ini=(nm||'?').trim().charAt(0).toUpperCase(),isOwner=CLOUD.email===OWNER_EMAIL;
     const mem=(CLOUD.members||[]).map(m=>`<div class="kv"><span>${esc(m)}${m===CLOUD.ownerEmail?' (owner)':''}${m===CLOUD.email?' · you':''}</span>${isOwner&&m!==CLOUD.ownerEmail&&m!==CLOUD.email?`<button class="link" data-a="shareRemove" data-e="${esc(m)}">Remove</button>`:'<b></b>'}</div>`).join('');
     body=`<div class="card"><div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini)}</span><div style="min-width:0"><div class="rtitle">${esc(nm)}</div><div class="rsub">${esc(CLOUD.email)}</div></div></div><div class="kv" style="margin-top:12px"><span>Sync</span><b id="syncTxt">${SYNC_TXT[CLOUD.state]||''}</b></div><div class="btns"><button class="btn danger block" data-a="signOutAsk">Sign out</button></div></div>
-    <section><div class="h"><h2>Who can open this tracker</h2></div><div class="card">${mem}${isOwner?`<div class="catedit"><input class="input" id="shareEmail" type="email" inputmode="email" placeholder="Gmail address to share with" autocomplete="off"><button class="btn" data-a="shareAdd">Add</button></div><p class="errmsg" id="shareErr"></p>`:'<div class="muted" style="padding-top:8px">Only the owner can add or remove people.</div>'}</div></section>`;
+    <section><div class="h"><h2>Who can open this tracker</h2></div><div class="card">${mem}${isOwner?`<div class="catedit"><input class="input" id="shareEmail" type="email" inputmode="email" placeholder="Gmail address to let in" autocomplete="off"><button class="btn" data-a="shareAdd">Add</button></div><p class="errmsg" id="shareErr"></p>`:'<div class="muted" style="padding-top:8px">Only '+OWNER_EMAIL+' can add or remove people.</div>'}</div></section>`;
   }
   return `<div class="stack">${body}<div class="card list" style="padding:0 16px"><button class="menuitem" data-a="settings">Settings ${ic('right',18)}</button><button class="menuitem" data-a="exportSheet">Back up my data ${ic('right',18)}</button></div></div>`;
 }
