@@ -375,15 +375,34 @@ function allPay(){
   const body=Object.keys(by).sort().map(k=>{const items=by[k].sort((a,b)=>a.type.localeCompare(b.type)||a.owner.localeCompare(b.owner)||a.desc.localeCompare(b.desc));const exp=items.filter(r=>r.type==='Expense'),due=exp.reduce((s,r)=>s+Number(r.amount),0),un=exp.filter(r=>!r.paid).length;return `<section><div class="h" style="margin-top:10px"><h2 ${k===S.month?'style="color:var(--blue)"':''}>${ml(k)}</h2><span class="muted">${money(due)} bills${un?' · '+un+' unpaid':exp.length?' · all paid':''}</span></div><div class="card list">${items.map(billRow).join('')}</div></section>`}).join('');
   return `<section><div class="h"><h2>Every payment</h2><button class="link" data-a="toggleBillsAll">Hide</button></div>${body}</section>`;
 }
+function ensurePay(d){if(!Array.isArray(d.payments)){d.payments=[];if(d.status==='paid'&&Number(d.amount)>0)d.payments.push({id:'legacy-'+d.id,date:d.date,amount:Number(d.amount),note:'Marked paid earlier'})}return d}
+function dStat(d){ensurePay(d);const total=Number(d.amount)||0,paid=Math.min(total,d.payments.reduce((t,p)=>t+(Number(p.amount)||0),0)),left=Math.max(0,total-paid);return{total,paid,left,full:total>0&&left<0.005,pct:total?Math.min(100,paid/total*100):0}}
+function syncDebtStatus(d){d.status=dStat(d).full?'paid':'unpaid'}
 function debtsView(){
   const list=debts.filter(d=>S.owner==='Both'||d.owner===S.owner);
-  const un=list.filter(d=>d.status!=='paid'),pd=list.filter(d=>d.status==='paid');
-  const bal=un.reduce((s,d)=>s+Number(d.amount||0),0),done=pd.reduce((s,d)=>s+Number(d.amount||0),0);
-  const sum=`<section class="card hero"><div class="lbl">You still owe</div><div class="big ${bal?'neg':'pos'}">${money(bal)}</div><div class="trio" style="grid-template-columns:1fr 1fr"><div><span>Open items</span><b>${un.length}</b></div><div><span>Settled so far</span><b class="pos">${money(done)}</b></div></div></section>`;
+  let total=0,paid=0,left=0,open=0;list.forEach(d=>{const x=dStat(d);total+=x.total;paid+=x.paid;left+=x.left;if(!x.full)open++});
+  const sum=`<section class="card hero"><div class="lbl">You still owe</div><div class="big ${left?'neg':'pos'}">${money(left)}</div><div class="bar" aria-hidden="true"><i style="width:${total?paid/total*100:0}%;background:var(--in)"></i></div><div class="trio"><div><span>Total debt</span><b>${money(total)}</b></div><div><span>Paid so far</span><b class="pos">${money(paid)}</b></div><div><span>Open items</span><b>${open}</b></div></div></section>`;
   const groups={};list.forEach(d=>{const k=d.person.trim().toLowerCase();(groups[k]=groups[k]||{name:d.person.trim(),items:[]}).items.push(d)});
-  const gs=Object.values(groups).map(g=>({...g,open:g.items.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.amount||0),0)})).sort((a,b)=>b.open-a.open||a.name.localeCompare(b.name));
-  const body=gs.length?gs.map(g=>`<section><div class="h"><h2>${esc(g.name)}</h2><span class="${g.open?'neg':'pos'}" style="font-weight:800">${g.open?money(g.open):'Settled'}</span></div><div class="card list">${g.items.sort((a,b)=>(a.status==='paid')-(b.status==='paid')||b.date.localeCompare(a.date)).map(d=>`<div class="row"><button class="tap" data-a="togglePaidDebt" data-id="${esc(d.id)}" aria-label="${d.status==='paid'?'Mark unpaid':'Mark paid'}"><span class="check ${d.status==='paid'?'on':''}">${ic('check',16)}</span></button><button class="rmain" style="text-align:left" data-a="debtOpen" data-id="${esc(d.id)}"><span class="rtitle" style="${d.status==='paid'?'text-decoration:line-through;opacity:.6':''}">${esc(d.item)}</span><span class="rsub">${esc(d.owner)} · ${esc(d.date)}${d.note?' · '+esc(d.note):''}</span></button><span class="ramt">${money(d.amount)}</span></div>`).join('')}</div></section>`).join(''):`<div class="card empty"><b>No debts recorded</b>Add money you owe to someone. Tick it off when you have paid it back.</div>`;
+  const gs=Object.values(groups).map(g=>({...g,open:g.items.reduce((t,i)=>t+dStat(i).left,0)})).sort((a,b)=>b.open-a.open||a.name.localeCompare(b.name));
+  const row=d=>{const x=dStat(d);return `<button class="row" data-a="debtOpen" data-id="${esc(d.id)}" style="align-items:flex-start;text-align:left"><span class="rmain"><span class="rtitle">${esc(d.item)}</span><span class="rsub">${esc(d.owner)} · ${esc(d.date)}${d.note?' · '+esc(d.note):''}</span><span class="bar" style="display:block;margin:8px 0 4px"><i style="width:${x.pct}%;background:var(--in)"></i></span><span class="rsub">Paid ${money(x.paid)} of ${money(x.total)}</span></span><span class="ramt ${x.full?'pos':'neg'}" style="text-align:right">${x.full?'Paid':money(x.left)}<span class="rsub" style="font-weight:600">${x.full?'':'left'}</span></span></button>`};
+  const body=gs.length?gs.map(g=>`<section><div class="h"><h2>${esc(g.name)}</h2><span class="${g.open?'neg':'pos'}" style="font-weight:800">${g.open?money(g.open)+' left':'Settled'}</span></div><div class="card list">${g.items.slice().sort((a,b)=>(dStat(a).full)-(dStat(b).full)||b.date.localeCompare(a.date)).map(row).join('')}</div></section>`).join(''):`<div class="card empty"><b>No debts recorded</b>Add money you owe to someone. Record each payment as you pay it back.</div>`;
   return `<div class="stack">${sum}${body}</div>`;
+}
+function debtDetail(id){
+  const d=debts.find(x=>x.id===id);if(!d)return;const st=dStat(d);
+  const pays=d.payments.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  openSheet(`<h3>${esc(d.item)}</h3><div class="muted">Owed to ${esc(d.person)} · ${esc(d.owner)} · ${esc(d.date)}</div>${d.note?`<div class="note">${esc(d.note)}</div>`:''}
+  <div class="trio" style="margin:14px 0 8px"><div><span>Total</span><b>${money(st.total)}</b></div><div><span>Paid</span><b class="pos">${money(st.paid)}</b></div><div><span>Remaining</span><b class="${st.left?'neg':'pos'}">${money(st.left)}</b></div></div>
+  <div class="bar"><i style="width:${st.pct}%;background:var(--in)"></i></div>
+  ${st.full?`<div class="note" style="margin-top:12px;color:var(--in);font-weight:700">Fully paid. Nothing left to pay.</div>`:`<form data-form="pay" data-id="${esc(id)}" novalidate>
+   <div class="h" style="margin-top:18px"><h2>Add a payment</h2></div>
+   <div class="two"><div class="field" style="margin-top:0"><label for="pAmt">Amount paid</label><input class="input" id="pAmt" type="number" inputmode="decimal" step="0.01" min="0" value="${st.left.toFixed(2)}"></div><div class="field" style="margin-top:0"><label for="pDate">Date paid</label><input class="input" id="pDate" type="date" value="${todayStr()}"></div></div>
+   <div class="field"><label for="pNote">Note (optional)</label><input class="input" id="pNote" placeholder="e.g. Bank transfer" autocomplete="off"></div>
+   <p class="errmsg" id="perr" role="alert"></p>
+   <div class="btns"><button class="btn block" type="submit">Save payment</button></div></form>`}
+  <div class="h" style="margin-top:20px"><h2>Payments made</h2><span class="muted">${d.payments.length}</span></div>
+  <div class="list">${pays.length?pays.map(p=>`<div class="row"><span class="rmain"><span class="rtitle">${esc(p.date)}</span>${p.note?`<span class="rsub">${esc(p.note)}</span>`:''}</span><span class="ramt pos">${money(p.amount)}</span><button class="iconbtn" style="width:36px;height:36px" data-a="payDel" data-id="${esc(id)}" data-pid="${esc(p.id)}" aria-label="Remove this payment">${ic('x',16)}</button></div>`).join(''):'<div class="muted" style="padding:6px 0">No payments yet.</div>'}</div>
+  <div class="btns two"><button class="btn ghost" data-a="debtEdit" data-id="${esc(id)}">Edit debt</button><button class="btn danger" data-a="debtDelete" data-id="${esc(id)}">Delete</button></div>`);
 }
 
 /* ---------- sheets ---------- */
@@ -488,6 +507,7 @@ function debtSheet(id){
   openSheet(`<h3>${d?'Edit debt':'Add debt'}</h3><div class="muted">Money you owe to someone</div>
   <form data-form="debt" data-id="${esc(id||'')}" novalidate>
    <div class="field"><label for="dAmt">Amount</label><input class="input amount-in" id="dAmt" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" value="${d?esc(d.amount):''}"></div>
+   ${d?'':'<div class="field"><label for="dPaidNow">Already paid so far (optional)</label><input class="input" id="dPaidNow" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div>'}
    <div class="field"><label for="dPerson">Who do you owe?</label><input class="input" id="dPerson" placeholder="e.g. Ali" value="${d?esc(d.person):''}" autocomplete="off"></div>
    <div class="field"><label for="dItem">What for?</label><input class="input" id="dItem" placeholder="e.g. Borrowed for car repair" value="${d?esc(d.item):''}" autocomplete="off"></div>
    <div class="field"><label class="lab">Account</label>${segHtml('dOwner',[['ZZ','ZZ'],['AZ','AZ']],d?d.owner:(S.owner==='AZ'?'AZ':'ZZ'))}</div>
@@ -578,10 +598,12 @@ const A={
   toggleBillsAll(){S.billsAll=!S.billsAll;render()},
   togglePaidSched(d){const r=rec(d.id);if(!r)return;r.paid=!r.paid;buzz();persist();render();const y=$('sbody').scrollTop;const l=document.querySelector('#sbody .list');const ly=l?l.scrollTop:0;schedSheet(d.sid);$('sbody').scrollTop=y;const l2=document.querySelector('#sbody .list');if(l2)l2.scrollTop=ly},
   schedDelete(d){const s=schedules.find(x=>x.id===d.id);if(!s)return;confirmSheet('Delete this bill?',`“${s.desc}” and all its monthly payments will be removed.`,'Delete',()=>{snapshot();schedules=schedules.filter(x=>x.id!==s.id);records=records.filter(r=>r.scheduleId!==s.id);commit();toast('Bill deleted',true)})},
-  debtOpen(d){debtSheet(d.id)},
+  debtOpen(d){debtDetail(d.id)},
+  debtEdit(d){debtSheet(d.id)},
+  payDel(d){const x=debts.find(y=>y.id===d.id);if(!x)return;ensurePay(x);snapshot();x.payments=x.payments.filter(p=>p.id!==d.pid);syncDebtStatus(x);commit();debtDetail(d.id);toast('Payment removed',true)},
   togglePaidDebt(d){const x=debts.find(y=>y.id===d.id);if(!x)return;x.status=x.status==='paid'?'unpaid':'paid';buzz();commit()},
   debtDelete(d){const x=debts.find(y=>y.id===d.id);if(!x)return;snapshot();debts=debts.filter(y=>y.id!==d.id);closeSheet();commit();toast('Debt deleted',true)},
-  undo(){if(!snap)return;const o=JSON.parse(snap);records=o.records;schedules=o.schedules;debts=o.debts;categories=o.categories;snap=null;$('toast').classList.remove('show');commit()},
+  undo(){if(!snap)return;const o=JSON.parse(snap);records=o.records;schedules=o.schedules;debts=o.debts;categories=o.categories;snap=null;$('toast').classList.remove('show');closeSheet();commit()},
   settings(){settingsSheet()},
   async gSignIn(){const f=CLOUD.fb;if(!f){cloudInit();return}gateBusy(true,'Opening Google…');
     try{if(f.auth.currentUser){await onSignedIn(f.auth.currentUser);return}await f.authM.signInWithPopup(f.auth,new f.authM.GoogleAuthProvider())}
@@ -625,8 +647,11 @@ document.addEventListener('submit',e=>{
     snapshot();Object.assign(s,{desc,amount:amt,startMonth:st,endMonth:en,startLabel:ml(st),endLabel:ml(en),open:op});syncSchedule(s);closeSheet();commit();toast('Bill updated',true)}
   else if(f==='debt'){const id=e.target.dataset.id,err=$('err');const data={owner:(qsa('[data-seg="dOwner"] button.on')[0]||{dataset:{v:'ZZ'}}).dataset.v,person:$('dPerson').value.trim(),item:$('dItem').value.trim(),date:$('dDate').value,amount:Number($('dAmt').value),note:$('dNote').value.trim()};
     if(!(data.amount>0))return err.textContent='Enter an amount above 0.';if(!data.person)return err.textContent='Who do you owe?';if(!data.item)return err.textContent='What is it for?';if(!data.date)return err.textContent='Choose a date.';
-    snapshot();if(id){const d=debts.find(x=>x.id===id);if(d)Object.assign(d,data)}else debts.push({id:uid(),status:'unpaid',...data});
-    closeSheet();commit();toast('Debt saved',true)}
+    if(id){const d=debts.find(x=>x.id===id);if(d){const st=dStat(d);if(data.amount<st.paid-0.005)return err.textContent='The total cannot be less than the '+money(st.paid)+' you already paid.';snapshot();Object.assign(d,data);syncDebtStatus(d);closeSheet();commit();toast('Debt saved',true)}}
+    else{const pre=Number(($('dPaidNow')||{}).value||0);if(pre<0||pre>data.amount+0.005)return err.textContent='Already paid cannot be more than the total.';snapshot();const nd={id:uid(),status:'unpaid',payments:[],...data};if(pre>0)nd.payments.push({id:uid(),date:data.date,amount:Math.round(pre*100)/100,note:'Paid before adding'});syncDebtStatus(nd);debts.push(nd);closeSheet();commit();toast('Debt saved',true)}}
+  else if(f==='pay'){const id=e.target.dataset.id,d=debts.find(x=>x.id===id),er=$('perr');if(!d)return;const st=dStat(d),amt=Number($('pAmt').value),date=$('pDate').value,note=$('pNote').value.trim();
+    if(!(amt>0))return er.textContent='Enter the amount you paid.';if(amt>st.left+0.005)return er.textContent='Only '+money(st.left)+' is left to pay.';if(!date)return er.textContent='Choose the date you paid.';
+    snapshot();d.payments.push({id:uid(),date,amount:Math.round(amt*100)/100,note});syncDebtStatus(d);commit();debtDetail(id);const l=Math.max(0,st.left-amt);toast(l<0.005?'Fully paid':'Saved. '+money(l)+' left',true)}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetOpen())closeSheet()});
 
