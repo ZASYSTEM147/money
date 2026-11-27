@@ -243,17 +243,7 @@ categories=Array.isArray(categories)?categories.filter(c=>typeof c==='string'&&c
 LOCKED.forEach(c=>{if(!categories.includes(c))categories.push(c)});
 [...records,...schedules].forEach(x=>{if(x.category&&x.category!=='Transfer'&&!categories.includes(x.category))categories.push(x.category)});
 let title=(()=>{try{return localStorage.getItem(K.title)||'ZZ & AZ Tracker'}catch(e){return'ZZ & AZ Tracker'}})();
-function syncDebtRecords(){
-  /* Money received from people who owe you counts as Income, so Balance goes up. Rebuilt from the debt payments each time. */
-  const old=new Map(records.filter(r=>r.debtPayId).map(r=>[r.debtPayId,r]));
-  records=records.filter(r=>!r.debtPayId);
-  debts.forEach(d=>{if(!d||d.dir!=='owed'||!Array.isArray(d.payments))return;
-    d.payments.forEach(p=>{const a=Number(p.amount)||0;if(!(a>0))return;const o=old.get(p.id);
-      records.push({id:'debtpay-'+p.id,date:p.date,owner:d.owner,type:'Income',category:'Debt',paymentMethod:(o&&o.paymentMethod)||'Bank',desc:(d.person||'Someone')+' paid back'+(d.item?' · '+d.item:''),amount:a,note:p.note||'',debtId:d.id,debtPayId:p.id})})});
-  if(!categories.includes('Debt'))categories.push('Debt');
-}
 function persist(){
-  syncDebtRecords();
   if(typeof cloudDirty==='function')cloudDirty();
   writeRaw(K.notes,JSON.stringify(notes));writeRaw(K.rec,JSON.stringify(records));writeRaw(K.sch,JSON.stringify(schedules));writeRaw(K.debt,JSON.stringify(debts));writeRaw(K.cat,JSON.stringify(categories));
   writeRaw(K.dates,JSON.stringify(Object.fromEntries(schedules.map(x=>[x.id,{startMonth:x.startMonth,endMonth:x.endMonth,startLabel:x.startLabel,endLabel:x.endLabel}]))));
@@ -270,7 +260,8 @@ const S={billsAll:false,view:'home',owner:(()=>{try{return localStorage.getItem(
 
 /* ---------- data logic ---------- */
 const monthRecs=(m,o=S.owner)=>records.filter(r=>mk(r.date)===m&&(o==='Both'||r.owner===o));
-function totals(list){let income=0,expense=0,out=0,into=0;list.forEach(r=>{const a=Number(r.amount)||0;if(r.type==='Income')income+=a;else if(r.type==='Expense')expense+=a;else if(r.type==='Transfer Out')out+=a;else if(r.type==='Transfer In')into+=a});return{income,expense,balance:income-expense,out,into,net:income-expense-out+into}}
+function debtIn(m,o=S.owner){let t=0;debts.forEach(d=>{if(d.dir!=='owed'||!(o==='Both'||d.owner===o))return;ensurePay(d);d.payments.forEach(p=>{if(p.date&&mk(p.date)===m)t+=Number(p.amount)||0})});return t}
+function totals(list,m,o){let income=0,expense=0,out=0,into=0,debt=0;if(m)debt=debtIn(m,o);list.forEach(r=>{const a=Number(r.amount)||0;if(r.type==='Income')income+=a;else if(r.type==='Expense')expense+=a;else if(r.type==='Transfer Out')out+=a;else if(r.type==='Transfer In')into+=a});income+=debt;return{income,expense,debt,balance:income-expense,out,into,net:income-expense-out+into}}
 const isPlus=t=>t==='Income'||t==='Transfer In';
 const kind=t=>t==='Income'?'income':t==='Expense'?'expense':'transfer';
 const rec=id=>records.find(r=>r.id===id);
@@ -324,15 +315,15 @@ function homeView(){
   if(!records.length&&!schedules.length&&!debts.length&&!notes.length){
     return `<div class="card empty"><b>Welcome</b>Add your first salary, bill or spending. Everything stays on this phone.<div class="btns"><button class="btn block" data-a="add">${ic('plus',18)} Add first transaction</button><button class="btn ghost block" data-a="importSheet">Import a backup</button></div></div>`;
   }
-  const list=monthRecs(S.month),t=totals(list),xfer=t.into-t.out,flowIn=t.income,flowOut=t.expense;
-  const hero=`<section class="card hero"><div class="lbl">Left in ${ml(S.month)}${S.owner!=='Both'?' · '+S.owner:''}</div><div class="big ${t.net<0?'neg':'pos'}">${money(t.net)}</div><div class="flow" aria-hidden="true"><i class="in" style="flex:${flowIn||0.001}"></i><i class="out" style="flex:${flowOut||0.001}"></i></div><div class="trio" style="grid-template-columns:1fr 1fr;row-gap:12px"><div><span>Money in</span><b class="pos">${money(t.income)}</b></div><div><span>Money out</span><b class="neg">${money(t.expense)}</b></div><div><span>Transfer in</span><b class="pos">${t.into?'+':''}${money(t.into)}</b></div><div><span>Transfer out</span><b class="neg">${t.out?'−':''}${money(t.out)}</b></div></div></section>`;
+  const list=monthRecs(S.month),t=totals(list,S.month),xfer=t.into-t.out,flowIn=t.income,flowOut=t.expense;
+  const hero=`<section class="card hero"><div class="lbl">Left in ${ml(S.month)}${S.owner!=='Both'?' · '+S.owner:''}</div><div class="big ${t.net<0?'neg':'pos'}">${money(t.net)}</div>${t.debt?`<div class="muted" style="margin-top:2px">Includes ${money(t.debt)} debt paid back to you</div>`:''}<div class="flow" aria-hidden="true"><i class="in" style="flex:${flowIn||0.001}"></i><i class="out" style="flex:${flowOut||0.001}"></i></div><div class="trio" style="grid-template-columns:1fr 1fr;row-gap:12px"><div><span>Money in</span><b class="pos">${money(t.income)}</b></div><div><span>Money out</span><b class="neg">${money(t.expense)}</b></div><div><span>Transfer in</span><b class="pos">${t.into?'+':''}${money(t.into)}</b></div><div><span>Transfer out</span><b class="neg">${t.out?'−':''}${money(t.out)}</b></div></div></section>`;
   // chart
-  const y=S.month.slice(0,4),ms=MONTHS.map((_,i)=>`${y}-${pad(i+1)}`),vals=ms.map(k=>totals(monthRecs(k))),max=Math.max(1,...vals.flatMap(v=>[v.income,v.expense]));
+  const y=S.month.slice(0,4),ms=MONTHS.map((_,i)=>`${y}-${pad(i+1)}`),vals=ms.map(k=>totals(monthRecs(k),k)),max=Math.max(1,...vals.flatMap(v=>[v.income,v.expense]));
   const sel=vals[ms.indexOf(S.month)];
   const chart=`<section class="card"><div class="h" style="margin-top:0"><h2>${y} month by month</h2><span class="muted">Tap a month</span></div><div class="chart" data-noswipe>${ms.map((k,i)=>`<button class="col ${k===S.month?'sel':''}" data-a="pickMonth" data-v="${k}" aria-label="${ml(k)}: in ${money(vals[i].income)}, out ${money(vals[i].expense)}"><span class="bars"><i class="b in" style="height:${Math.max(2,vals[i].income/max*100)}%"></i><i class="b out" style="height:${Math.max(2,vals[i].expense/max*100)}%"></i></span><span class="mlbl">${MONTHS[i]}</span></button>`).join('')}</div><div class="readout"><span>${ml(S.month)}</span><span><span class="pos">In ${money(sel.income)}</span> &nbsp; <span class="neg">Out ${money(sel.expense)}</span></span></div></section>`;
   // accounts
   let acc='';
-  if(S.owner==='Both'){acc=`<div class="acc">${['ZZ','AZ'].map(p=>{const x=totals(monthRecs(S.month,p));return `<button class="card" data-a="owner" data-v="${p}"><div class="nm">${p} account</div><div class="v ${x.net<0?'neg':''}">${money(x.net)}</div><small>In ${money(x.income)}</small><small>Out ${money(x.expense)}</small><small>Transfers +${money(x.into)} / −${money(x.out)}</small></button>`}).join('')}</div>`}
+  if(S.owner==='Both'){acc=`<div class="acc">${['ZZ','AZ'].map(p=>{const x=totals(monthRecs(S.month,p),S.month,p);return `<button class="card" data-a="owner" data-v="${p}"><div class="nm">${p} account</div><div class="v ${x.net<0?'neg':''}">${money(x.net)}</div><small>In ${money(x.income)}</small><small>Out ${money(x.expense)}</small><small>Transfers +${money(x.into)} / −${money(x.out)}</small></button>`}).join('')}</div>`}
   // unpaid bills
   const unpaid=records.filter(r=>r.scheduleId&&r.type==='Expense'&&!r.paid&&mk(r.date)===S.month&&(S.owner==='Both'||r.owner===S.owner));
   const xfDue=records.filter(r=>r.scheduleId&&r.type==='Transfer Out'&&!r.paid&&mk(r.date)<=S.month&&(S.owner==='Both'||r.owner===S.owner)).sort((a,b)=>a.date.localeCompare(b.date));
@@ -562,7 +553,7 @@ function saveTx(){
   S.month=jump;closeSheet();commit();toast(d.id?'Changes saved':'Saved to '+ml(jump),true);
 }
 function txOpen(id){
-  const r=rec(id);if(!r)return;if(r.debtId&&debts.some(x=>x.id===r.debtId)){debtDetail(r.debtId);return}const k=kind(r.type),sc=r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
+  const r=rec(id);if(!r)return;const k=kind(r.type),sc=r.scheduleId?schedules.find(s=>s.id===r.scheduleId):null;
   openSheet(`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><span class="badge ${k}">${ic(k==='income'?'up':k==='expense'?'down':'swap',19)}</span><div style="flex:1;min-width:0"><h3 style="overflow:hidden;text-overflow:ellipsis">${esc(r.desc)}</h3><div class="muted">${esc(r.type)}</div></div></div>
   <div class="big" style="font-size:32px;font-weight:800;letter-spacing:-1px;margin:6px 0 8px">${isPlus(r.type)?'+':'−'}${money(r.amount)}</div>
   <div class="kv"><span>Date</span><b>${esc(r.date)}</b></div><div class="kv"><span>Account</span><b>${esc(r.owner)}</b></div><div class="kv"><span>Category</span><b>${esc(r.category)}</b></div>${r.toPerson?`<div class="kv"><span>Sent to</span><b>${esc(r.toPerson)}</b></div>`:''}${r.scheduleId&&(r.type==='Transfer Out'||!String(r.type).startsWith('Transfer'))?`<div class="kv"><span>Status</span><b class="${r.paid?'pos':'neg'}">${r.type==='Transfer Out'?(r.paid?'Transferred':'Not transferred yet'):r.paid?(r.type==='Income'?'Received':'Paid'):(r.type==='Income'?'Expected':'Not paid yet')}</b></div><div class="field"><label class="lab">Paid by</label><div class="seg full" data-seg="rpm">${['Bank','Cash','Transfer'].map(m=>`<button type="button" data-a="seg" data-n="rpm" data-id="${esc(r.id)}" data-v="${m}" class="${(r.paymentMethod||'Bank')===m?'on':''}">${m}</button>`).join('')}</div></div>`:(r.paymentMethod?`<div class="kv"><span>Paid by</span><b>${esc(r.paymentMethod)}</b></div>`:'')}${sc?`<div class="kv"><span>Repeats</span><b>${sc.open?'from '+ml(sc.startMonth)+', no end date':ml(sc.startMonth)+' to '+ml(sc.endMonth)}</b></div>`:''}${r.note&&r.note!=='Scheduled monthly payment'&&r.note!=='Auto-created matching transfer'?`<div class="kv" style="display:block"><span>Note</span><div style="white-space:pre-wrap;margin-top:6px;font-weight:600">${esc(r.note)}</div></div>`:''}
@@ -906,7 +897,6 @@ function cloudBlock(){
 }
 cloudInit();
 
-persist();
 render();
 </script>
 </body>
